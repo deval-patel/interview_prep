@@ -42,7 +42,13 @@
  */
 void swap_xor(int* a, int* b) {
     // TODO: Implement XOR swap with edge case handling
-
+    if (a == b) {
+        // If both pointers are the same, do nothing to avoid zeroing the value
+        return;
+    }
+    *a ^= *b;
+    *b ^= *a;
+    *a ^= *b;
 }
 
 /**
@@ -52,7 +58,9 @@ void swap_xor(int* a, int* b) {
  */
 void swap_arithmetic(int* a, int* b) {
     // TODO: Implement arithmetic swap
-
+    *a = *a + *b;
+    *b = *a - *b;
+    *a = *a - *b;
 }
 
 /**
@@ -60,8 +68,13 @@ void swap_arithmetic(int* a, int* b) {
  * Same constraints apply.
  */
 void swap_xor_64(uint64_t* a, uint64_t* b) {
-    // TODO: Implement
-
+    if (a == b) {
+        // If both pointers are the same, do nothing to avoid zeroing the value
+        return;
+    }
+    *a ^= *b;
+    *b ^= *a;
+    *a ^= *b;
 }
 
 // ============ TEST FRAMEWORK ============

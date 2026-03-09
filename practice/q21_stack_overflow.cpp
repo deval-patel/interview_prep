@@ -44,8 +44,8 @@
 // ============ SIMULATED STACK MEMORY ============
 
 const size_t STACK_SIZE = 1024;  // 1KB stack
-const uint32_t CANARY_VALUE = 0xDEADBEEF;
-const uint8_t PAINT_PATTERN = 0xCD;
+[[maybe_unused]] const uint32_t CANARY_VALUE = 0xDEADBEEF;
+[[maybe_unused]] const uint8_t PAINT_PATTERN = 0xCD;
 
 // Simulated stack (grows downward)
 static uint8_t g_stack[STACK_SIZE];

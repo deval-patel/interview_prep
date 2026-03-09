@@ -47,8 +47,8 @@
  */
 uint32_t extract_bits(uint32_t value, int start, int end) {
     // TODO: Implement bit extraction
-
-    return 0;  // Placeholder
+    uint32_t mask = create_mask(start, end);
+    return (value & mask) >> start;
 }
 
 /**
@@ -64,8 +64,9 @@ uint32_t extract_bits(uint32_t value, int start, int end) {
  */
 uint32_t set_bits(uint32_t original, int start, int end, uint32_t field) {
     // TODO: Implement bit field setting
-
-    return 0;  // Placeholder
+    uint32_t mask = create_mask(start, end);
+    // Clear the target field in original, then set it with the new field value
+    return (original & ~mask) | ((field << start) & mask);
 }
 
 /**
@@ -78,8 +79,8 @@ uint32_t set_bits(uint32_t original, int start, int end, uint32_t field) {
  */
 uint32_t toggle_bits(uint32_t value, int start, int end) {
     // TODO: Implement bit toggling
-
-    return 0;  // Placeholder
+    uint32_t mask = create_mask(start, end);
+    return value ^ mask;
 }
 
 /**
@@ -92,8 +93,15 @@ uint32_t toggle_bits(uint32_t value, int start, int end) {
  */
 int count_bits_in_field(uint32_t value, int start, int end) {
     // TODO: Implement popcount for field
+    uint32_t mask = create_mask(start, end);
+    uint32_t field = (value & mask) >> start;
+    int count = 0;
+    while (field > 0) {
+        count ++;
+        field &= (field - 1); // Clear the least significant bit set
+    }
 
-    return 0;  // Placeholder
+    return count;
 }
 
 /**
@@ -104,8 +112,9 @@ int count_bits_in_field(uint32_t value, int start, int end) {
  */
 uint32_t create_mask(int start, int end) {
     // TODO: Implement mask creation
-
-    return 0;  // Placeholder
+    int width = end - start + 1;
+    uint32_t mask = (1U << width) - 1;
+    return mask << start;
 }
 
 // ============ TEST FRAMEWORK ============

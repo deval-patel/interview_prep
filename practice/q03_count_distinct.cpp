@@ -73,6 +73,16 @@ uint64_t stream_total_count() {
 
 // ============ YOUR IMPLEMENTATION ============
 
+uint16_t hash_value(uint16_t value) {
+    // XOR-shift to shuffle numbers [H][L] -> [H][L^H]
+    value ^= value >> 8;
+    value *= 0x4567;  // Arbitrary odd multiplier
+    value ^= value >> 7; // shift again by 7 to mix bits further, use 7 instead of 8 for randomness.
+    return value;
+}
+
+
+
 /**
  * Count approximate number of distinct values in the stream.
  *
@@ -97,7 +107,32 @@ uint32_t count_distinct_approximate() {
     // 2. Use statistical estimation based on collision rate
     // 3. Or implement HyperLogLog with multiple registers
 
-    return 0;  // Placeholder
+    uint8_t bitmap[1024] = {0};  // 8192 bits
+
+    // Process the stream
+    while (stream_has_next())
+    {
+        uint16_t value = stream_next();
+        uint16_t hash = hash_value(value);
+        // Only consider values that hash into our bitmap range
+        if (hash < 8192) {
+            // Set the corresponding bit in the bitmap
+            bitmap[hash / 8] |= (1 << (hash % 8));
+        }
+    }
+
+    // Count the set bits
+    uint32_t distinctCount = 0;
+    for (size_t i = 0; i < 1024; i++) {
+        uint8_t byte = bitmap[i];
+        // Count bits in byte
+        while (byte > 0) {
+            distinctCount ++;
+            byte &= (byte - 1); // Clear the least significant bit set
+        }
+    }
+    
+    return distinctCount;
 }
 
 /**

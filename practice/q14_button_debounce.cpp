@@ -90,7 +90,7 @@ uint32_t get_time_ms() {
 class BlockingDebouncer {
 private:
     static const uint32_t DEBOUNCE_MS = 20;
-    bool last_stable_state;
+    [[maybe_unused]] bool last_stable_state;
 
 public:
     BlockingDebouncer() : last_stable_state(false) {}

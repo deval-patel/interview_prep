@@ -150,7 +150,9 @@ public:
 template<typename T, size_t NUM_OBJECTS>
 class ObjectPool {
 private:
-    MemoryPool<sizeof(T), NUM_OBJECTS> pool;
+    // Blocks must hold at least a void* pointer for the free list, even if T is smaller.
+    static constexpr size_t BLOCK_SZ = sizeof(T) >= sizeof(void*) ? sizeof(T) : sizeof(void*);
+    MemoryPool<BLOCK_SZ, NUM_OBJECTS> pool;
 
 public:
     /**
@@ -183,6 +185,18 @@ public:
 };
 
 // ============ TEST FRAMEWORK ============
+
+// Must be at file scope: C++ does not allow static data members in local structs.
+struct TestObject {
+    int value;
+    static int construct_count;
+    static int destruct_count;
+
+    TestObject(int v) : value(v) { construct_count++; }
+    ~TestObject() { destruct_count++; }
+};
+int TestObject::construct_count = 0;
+int TestObject::destruct_count = 0;
 
 bool test_basic_pool() {
     printf("--- Basic Memory Pool Tests ---\n");
@@ -294,14 +308,7 @@ bool test_object_pool() {
     int passed = 0;
     int total = 0;
 
-    struct TestObject {
-        int value;
-        static int construct_count;
-        static int destruct_count;
-
-        TestObject(int v) : value(v) { construct_count++; }
-        ~TestObject() { destruct_count++; }
-    };
+    // Reset counters before this test
     TestObject::construct_count = 0;
     TestObject::destruct_count = 0;
 
@@ -350,10 +357,6 @@ bool test_object_pool() {
     printf("Object pool tests: %d/%d passed\n\n", passed, total);
     return passed == total;
 }
-
-// Static member definitions
-int test_object_pool()::TestObject::construct_count = 0;
-int test_object_pool()::TestObject::destruct_count = 0;
 
 bool test_stress() {
     printf("--- Stress Test ---\n");

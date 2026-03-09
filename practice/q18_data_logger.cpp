@@ -96,10 +96,10 @@ struct LogEntry {
     uint8_t data[16];          // Sensor data
     uint32_t crc;              // CRC for integrity
     uint8_t commit_marker;     // 0x00 = committed, 0xFF = not committed
-    uint8_t padding[3];        // Align to 32 bytes total
+    uint8_t padding[3];        // Pad to 36-byte total (4+4+2+2+16+4+1+3)
 };
 
-static_assert(sizeof(LogEntry) == 32, "LogEntry must be 32 bytes");
+static_assert(sizeof(LogEntry) == 36, "LogEntry must be 36 bytes");
 
 // Sector header structure
 struct SectorHeader {
@@ -109,8 +109,8 @@ struct SectorHeader {
     uint32_t reserved;
 };
 
-const uint32_t SECTOR_MAGIC = 0x4C4F4731;  // "LOG1"
-const size_t ENTRIES_PER_SECTOR = (FLASH_SECTOR_SIZE - sizeof(SectorHeader)) / sizeof(LogEntry);
+[[maybe_unused]] const uint32_t SECTOR_MAGIC = 0x4C4F4731;  // "LOG1"
+[[maybe_unused]] const size_t ENTRIES_PER_SECTOR = (FLASH_SECTOR_SIZE - sizeof(SectorHeader)) / sizeof(LogEntry);
 
 // ============ YOUR IMPLEMENTATION ============
 

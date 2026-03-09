@@ -40,11 +40,13 @@ test: all
 		echo "$$failed test(s) had failures"; \
 	fi
 
-# Run specific question test
+# Run specific question test (finds the full binary name from the short alias)
 .PHONY: test-%
-test-%: %
-	@echo "Running $<..."
-	@./$<
+test-%:
+	@src=$$(ls $*_*.cpp 2>/dev/null | head -1); \
+	if [ -z "$$src" ]; then echo "No source found for $*"; exit 1; fi; \
+	binary=$${src%.cpp}; \
+	$(MAKE) $$binary && ./$$binary
 
 # Individual targets for convenience
 .PHONY: q01 q02 q03 q04 q05 q06 q07 q08 q09 q10

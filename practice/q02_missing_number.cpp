@@ -76,8 +76,33 @@ uint32_t find_missing_number(uint32_t n) {
     //
     // Remember: You cannot use an array or vector to store values.
     // Only a constant number of variables allowed.
+    uint32_t i;
 
-    return 0;  // Placeholder
+    uint32_t missingNumber = 0;
+
+    // Get count
+    uint64_t count = external_get_count();
+
+    if (count != n - 1) {
+        return 0;
+    }
+
+    // XOR all numbers from 0 to n - 1
+    for (i = 0; i < n; i++) {
+        missingNumber ^= i;
+    }
+
+    uint32_t value;
+
+    // XOR with all values from the external memory
+    for (i = 0; i < count; i++) {
+        // Duplicate numbers will cancel each other out due to XOR property.
+        if (external_read_next(&value)) {
+            missingNumber ^= value;
+        }
+    }
+
+    return missingNumber;  // Placeholder
 }
 
 /**
@@ -87,17 +112,72 @@ uint32_t find_missing_number(uint32_t n) {
  * @param missing1 Output: first missing number (smaller)
  * @param missing2 Output: second missing number (larger)
  *
- * Still O(1) space constraint!
+ * Space: O(1) — a constant number of variables only.
+ * Passes: TWO passes are allowed. Call external_reset() between them.
+ *         (The XOR partition approach inherently needs two passes:
+ *          you can't know the partition bit until after the first pass.)
  */
 void find_two_missing_numbers(uint32_t n, uint32_t* missing1, uint32_t* missing2) {
     // TODO: Implement your solution here
     //
     // Hint: XOR alone gives you (missing1 ^ missing2).
-    // You need another equation. Consider using sum, or finding
-    // a bit position where missing1 and missing2 differ.
+    // To separate the two values, find a bit where they differ,
+    // then use external_reset() and make a second pass to partition.
+    uint32_t i;
+    uint32_t missingNumbers = 0;
+
+    // XOR all numbers from 0 to n - 1
+    for (i = 0; i < n; i++) {
+        missingNumbers ^= i;
+    }
+
+    uint32_t value;
+
+    // XOR with all values from the external memory
+    for (i = 0; i < n - 2; i++) {
+        // Duplicate numbers will cancel each other out due to XOR property.
+        if (external_read_next(&value)) {
+            missingNumbers ^= value;
+        }
+    }
+
+    // Now missingNumbers holds a ^ b
+
+    // Isolate the lowest set bit
+
+    uint32_t dividerBit = missingNumbers & (-missingNumbers);
 
     *missing1 = 0;  // Placeholder
     *missing2 = 0;  // Placeholder
+
+    // Split them into two groups, one with the divider bit set, one without.
+    for (i = 0; i < n; i++) {
+        if (i & dividerBit)
+        {
+            *missing1 ^= i;
+        }
+        else
+        {
+            *missing2 ^= i;
+        }
+    }
+
+    // Rewind the stream for the second pass.
+    external_reset();
+
+    for (i = 0; i < n - 2; i++) {
+        // Duplicate numbers will cancel each other out due to XOR property.
+        if (external_read_next(&value)) {
+            if (value & dividerBit)
+            {
+                *missing1 ^= value;
+            }
+            else
+            {
+                *missing2 ^= value;
+            }
+        }
+    }
 }
 
 // ============ TEST FRAMEWORK ============

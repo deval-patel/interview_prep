@@ -74,8 +74,8 @@ uint32_t reverse_bits_divide_conquer(uint32_t n) {
  * This is optimal for repeated calls.
  */
 
-// Static lookup table - initialized once
-static uint8_t g_reverse_table[256];
+// Static lookup table - initialized once (used in reverse_bits_lookup)
+[[maybe_unused]] static uint8_t g_reverse_table[256];
 static bool g_table_initialized = false;
 
 void init_reverse_table() {

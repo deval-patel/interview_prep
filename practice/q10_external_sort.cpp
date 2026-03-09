@@ -51,7 +51,7 @@
 // Simulated RAM limit (in number of integers)
 // In real scenario: 10MB / 4 bytes = 2,621,440 integers
 // For testing: we use smaller values
-const size_t SIMULATED_RAM_INTEGERS = 100;  // Small for testing
+[[maybe_unused]] const size_t SIMULATED_RAM_INTEGERS = 100;  // Small for testing
 
 // Simulated external storage directory
 const char* TEMP_DIR = "/tmp/external_sort_test";

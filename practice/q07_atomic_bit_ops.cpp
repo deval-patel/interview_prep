@@ -48,7 +48,7 @@ static volatile bool g_interrupts_enabled = true;
 
 // Simulated interrupt state for testing
 static std::atomic<bool> g_isr_running{false};
-static std::atomic<int> g_race_condition_count{0};
+[[maybe_unused]] static std::atomic<int> g_race_condition_count{0};
 
 // Read the register (simulates volatile read)
 uint32_t reg_read() {

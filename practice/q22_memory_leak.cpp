@@ -98,7 +98,7 @@ struct AllocationStats {
     size_t current_usage;
 };
 
-static AllocationStats g_stats = {0};
+static AllocationStats g_stats = {};
 
 void stats_reset() {
     memset(&g_stats, 0, sizeof(g_stats));
@@ -206,7 +206,7 @@ class MemoryMonitor {
 private:
     static const size_t HISTORY_SIZE = 10;
     size_t usage_history[HISTORY_SIZE];
-    size_t history_index;
+    [[maybe_unused]] size_t history_index;
     size_t sample_count;
 
 public:
@@ -281,10 +281,10 @@ class MemoryCheckpoint {
 private:
     size_t start_allocations;
     size_t start_frees;
-    size_t start_usage;
+    [[maybe_unused]] size_t start_usage;
     size_t end_allocations;
     size_t end_frees;
-    size_t end_usage;
+    [[maybe_unused]] size_t end_usage;
     bool active;
 
 public:
@@ -347,9 +347,8 @@ void simulate_no_leak() {
 void simulate_leak() {
     printf("Simulating operation with leak...\n");
     void* p1 = DEBUG_MALLOC(64);
-    void* p2 = DEBUG_MALLOC(128);  // This leaks!
+    DEBUG_MALLOC(128);  // This leaks! (intentionally not stored or freed)
     DEBUG_FREE(p1);
-    // Forgot to free p2
 }
 
 bool test_allocation_tracking() {

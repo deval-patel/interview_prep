@@ -59,11 +59,11 @@ const size_t MAX_TASKS = 16;
 
 // Task priority levels (0 = highest, 255 = lowest)
 using Priority = uint8_t;
-const Priority PRIORITY_HIGHEST = 0;
-const Priority PRIORITY_HIGH = 64;
-const Priority PRIORITY_NORMAL = 128;
-const Priority PRIORITY_LOW = 192;
-const Priority PRIORITY_IDLE = 255;
+[[maybe_unused]] const Priority PRIORITY_HIGHEST = 0;
+                 const Priority PRIORITY_HIGH    = 64;
+                 const Priority PRIORITY_NORMAL  = 128;
+                 const Priority PRIORITY_LOW     = 192;
+[[maybe_unused]] const Priority PRIORITY_IDLE    = 255;
 
 // Task states
 enum TaskState : uint8_t {
@@ -98,7 +98,7 @@ class Scheduler {
 private:
     TaskControlBlock tasks[MAX_TASKS];
     size_t task_count;
-    size_t current_task;
+    [[maybe_unused]] size_t current_task;
     bool running;
 
     // TODO: Add any additional tracking variables

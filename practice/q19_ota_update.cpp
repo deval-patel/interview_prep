@@ -49,17 +49,19 @@
 
 // ============ SIMULATED FLASH MEMORY ============
 
-const size_t BOOTLOADER_SIZE = 0x10000;      // 64KB
-const size_t BOOT_CONFIG_SIZE = 0x1000;      // 4KB
-const size_t FIRMWARE_SLOT_SIZE = 0x80000;   // 512KB per slot
-const size_t PERSISTENT_SIZE = 0x10000;      // 64KB
+// Flash layout constants (used in your implementation; [[maybe_unused]] suppresses
+// warnings when stubs leave them unreferenced)
+[[maybe_unused]] const size_t BOOTLOADER_SIZE    = 0x10000;   // 64KB
+[[maybe_unused]] const size_t BOOT_CONFIG_SIZE   = 0x1000;    // 4KB
+[[maybe_unused]] const size_t FIRMWARE_SLOT_SIZE = 0x80000;   // 512KB per slot
+[[maybe_unused]] const size_t PERSISTENT_SIZE    = 0x10000;   // 64KB
 
-const size_t BOOTLOADER_ADDR = 0x00000000;
-const size_t BOOT_CONFIG_ADDR = 0x00010000;
-const size_t SLOT_A_ADDR = 0x00020000;
-const size_t SLOT_B_ADDR = 0x000A0000;
-const size_t PERSISTENT_ADDR = 0x00120000;
-const size_t FLASH_SIZE = 0x00130000;        // ~1.2MB total
+[[maybe_unused]] const size_t BOOTLOADER_ADDR  = 0x00000000;
+                 const size_t BOOT_CONFIG_ADDR  = 0x00010000;
+                 const size_t SLOT_A_ADDR       = 0x00020000;
+                 const size_t SLOT_B_ADDR       = 0x000A0000;
+[[maybe_unused]] const size_t PERSISTENT_ADDR  = 0x00120000;
+                 const size_t FLASH_SIZE        = 0x00130000; // ~1.2MB total
 
 static uint8_t g_flash[FLASH_SIZE];
 
@@ -143,7 +145,7 @@ const uint32_t FIRMWARE_MAGIC = 0x464D5752;  // "FMWR"
 class OTAManager {
 private:
     BootConfig config;
-    bool config_loaded;
+    [[maybe_unused]] bool config_loaded;
 
     // TODO: Add any additional state tracking
 

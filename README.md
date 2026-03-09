@@ -16,6 +16,22 @@ make test
 # Build and test a specific question
 make q04
 ./q04_swap_no_temp
+           
+  Practice questions (from practice/):                                                                                                                            
+  make all          # build all 23 questions                                                                                                                      
+  make test         # build and run all tests                                                                                                                     
+  make q01          # build just question 1                                                                                                                       
+  make test-q01     # build and run just question 1         
+  make clean        # remove binaries
+  make help         # show all targets
+
+  Solutions file (from solutions/) — no Makefile yet, compile manually:
+  cd solutions
+  g++ -std=c++17 -Wall -Wextra -o solutions solutions.cpp
+  ./solutions
+
+  I can add a Makefile to solutions/ if you'd like, or add a top-level Makefile that builds both. Want me to do that?
+
 ```
 
 ## Contents

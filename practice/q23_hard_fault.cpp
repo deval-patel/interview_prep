@@ -54,11 +54,12 @@
 // ============ SIMULATED ARM REGISTERS ============
 
 // System Control Block register addresses (Cortex-M3/M4)
-const uint32_t SCB_BASE = 0xE000ED00;
-const uint32_t SCB_CFSR = 0xE000ED28;   // Configurable Fault Status
-const uint32_t SCB_HFSR = 0xE000ED2C;   // Hard Fault Status
-const uint32_t SCB_MMFAR = 0xE000ED34;  // MemManage Fault Address
-const uint32_t SCB_BFAR = 0xE000ED38;   // Bus Fault Address
+// In real embedded code you'd use: volatile uint32_t* reg = (volatile uint32_t*)SCB_CFSR;
+[[maybe_unused]] const uint32_t SCB_BASE  = 0xE000ED00;
+[[maybe_unused]] const uint32_t SCB_CFSR  = 0xE000ED28;  // Configurable Fault Status
+[[maybe_unused]] const uint32_t SCB_HFSR  = 0xE000ED2C;  // Hard Fault Status
+[[maybe_unused]] const uint32_t SCB_MMFAR = 0xE000ED34;  // MemManage Fault Address
+[[maybe_unused]] const uint32_t SCB_BFAR  = 0xE000ED38;  // Bus Fault Address
 
 // Simulated register values
 static uint32_t g_cfsr = 0;
@@ -78,38 +79,38 @@ struct ExceptionFrame {
     uint32_t xpsr;  // Program Status Register
 };
 
-static ExceptionFrame g_exception_frame = {0};
+static ExceptionFrame g_exception_frame = {};
 static uint32_t g_sp_at_fault = 0;
 
 // ============ FAULT STATUS BIT DEFINITIONS ============
 
 // CFSR - Usage Fault Status Register (bits 16-25)
-const uint32_t UFSR_DIVBYZERO = (1 << 25);  // Division by zero
-const uint32_t UFSR_UNALIGNED = (1 << 24);  // Unaligned access
-const uint32_t UFSR_NOCP = (1 << 19);       // No coprocessor
-const uint32_t UFSR_INVPC = (1 << 18);      // Invalid PC load
-const uint32_t UFSR_INVSTATE = (1 << 17);   // Invalid EPSR.T bit
-const uint32_t UFSR_UNDEFINSTR = (1 << 16); // Undefined instruction
+[[maybe_unused]] const uint32_t UFSR_DIVBYZERO  = (1 << 25); // Division by zero
+[[maybe_unused]] const uint32_t UFSR_UNALIGNED  = (1 << 24); // Unaligned access
+[[maybe_unused]] const uint32_t UFSR_NOCP       = (1 << 19); // No coprocessor
+[[maybe_unused]] const uint32_t UFSR_INVPC      = (1 << 18); // Invalid PC load
+[[maybe_unused]] const uint32_t UFSR_INVSTATE   = (1 << 17); // Invalid EPSR.T bit
+[[maybe_unused]] const uint32_t UFSR_UNDEFINSTR = (1 << 16); // Undefined instruction
 
 // CFSR - Bus Fault Status Register (bits 8-15)
-const uint32_t BFSR_BFARVALID = (1 << 15);  // BFAR has valid address
-const uint32_t BFSR_STKERR = (1 << 12);     // Stack push error
-const uint32_t BFSR_UNSTKERR = (1 << 11);   // Stack pop error
-const uint32_t BFSR_IMPRECISERR = (1 << 10);// Imprecise bus error
-const uint32_t BFSR_PRECISERR = (1 << 9);   // Precise bus error
-const uint32_t BFSR_IBUSERR = (1 << 8);     // Instruction bus error
+[[maybe_unused]] const uint32_t BFSR_BFARVALID   = (1 << 15); // BFAR has valid address
+[[maybe_unused]] const uint32_t BFSR_STKERR      = (1 << 12); // Stack push error
+[[maybe_unused]] const uint32_t BFSR_UNSTKERR    = (1 << 11); // Stack pop error
+[[maybe_unused]] const uint32_t BFSR_IMPRECISERR = (1 << 10); // Imprecise bus error
+[[maybe_unused]] const uint32_t BFSR_PRECISERR   = (1 << 9);  // Precise bus error
+[[maybe_unused]] const uint32_t BFSR_IBUSERR     = (1 << 8);  // Instruction bus error
 
 // CFSR - MemManage Fault Status Register (bits 0-7)
-const uint32_t MMFSR_MMARVALID = (1 << 7);  // MMFAR has valid address
-const uint32_t MMFSR_MSTKERR = (1 << 4);    // Stack push MPU error
-const uint32_t MMFSR_MUNSTKERR = (1 << 3);  // Stack pop MPU error
-const uint32_t MMFSR_DACCVIOL = (1 << 1);   // Data access violation
-const uint32_t MMFSR_IACCVIOL = (1 << 0);   // Instruction access violation
+[[maybe_unused]] const uint32_t MMFSR_MMARVALID  = (1 << 7); // MMFAR has valid address
+[[maybe_unused]] const uint32_t MMFSR_MSTKERR    = (1 << 4); // Stack push MPU error
+[[maybe_unused]] const uint32_t MMFSR_MUNSTKERR  = (1 << 3); // Stack pop MPU error
+[[maybe_unused]] const uint32_t MMFSR_DACCVIOL   = (1 << 1); // Data access violation
+[[maybe_unused]] const uint32_t MMFSR_IACCVIOL   = (1 << 0); // Instruction access violation
 
 // HFSR - Hard Fault Status Register
-const uint32_t HFSR_DEBUGEVT = (1 << 31);   // Debug event
-const uint32_t HFSR_FORCED = (1 << 30);     // Forced hard fault (escalated)
-const uint32_t HFSR_VECTTBL = (1 << 1);     // Vector table read error
+[[maybe_unused]] const uint32_t HFSR_DEBUGEVT = (1u << 31); // Debug event
+                 const uint32_t HFSR_FORCED   = (1 << 30);  // Forced hard fault (escalated)
+[[maybe_unused]] const uint32_t HFSR_VECTTBL  = (1 << 1);   // Vector table read error
 
 // ============ YOUR IMPLEMENTATION ============
 
