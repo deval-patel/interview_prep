@@ -1,0 +1,18 @@
+# Build binaries (compiled from practice_anthropic/practice/*.cpp)
+practice_anthropic/practice/q[0-9][0-9]_*
+!practice_anthropic/practice/q[0-9][0-9]_*.cpp
+
+
+# Build binaries (compiled from practice/*.cpp)
+practice_general/practice/q[0-9][0-9]_*
+!practice_general/practice/q[0-9][0-9]_*.cpp
+
+# Compiled solutions binary
+practice_anthropic/solutions/solutions
+practice_general/solutions/solutions
+
+# macOS debug symbol bundles
+*.dSYM/
+
+# macOS metadata
+.DS_Store

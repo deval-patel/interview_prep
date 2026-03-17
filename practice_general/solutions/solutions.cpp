@@ -171,350 +171,6 @@ void q2_find_two_missing(
 }
 
 // ============================================================
-// Q4: Swap Without Temp (XOR method)
-// ============================================================
-void q4_swap_xor(int* a, int* b) {
-    if (a == b) return;  // Critical: same pointer check!
-    *a ^= *b;
-    *b ^= *a;
-    *a ^= *b;
-}
-
-// ============================================================
-// Q5: Reverse Bits
-// ============================================================
-// Naive O(32)
-uint32_t q5_reverse_naive(uint32_t n) {
-    uint32_t result = 0;
-    for (int i = 0; i < 32; i++) {
-        result = (result << 1) | (n & 1);
-        n >>= 1;
-    }
-    return result;
-}
-
-// Divide and conquer O(log 32) = O(5)
-uint32_t q5_reverse_divide_conquer(uint32_t n) {
-    n = ((n & 0x55555555) << 1)  | ((n & 0xAAAAAAAA) >> 1);   // Swap adjacent bits
-    n = ((n & 0x33333333) << 2)  | ((n & 0xCCCCCCCC) >> 2);   // Swap pairs
-    n = ((n & 0x0F0F0F0F) << 4)  | ((n & 0xF0F0F0F0) >> 4);   // Swap nibbles
-    n = ((n & 0x00FF00FF) << 8)  | ((n & 0xFF00FF00) >> 8);   // Swap bytes
-    n = ((n & 0x0000FFFF) << 16) | ((n & 0xFFFF0000) >> 16);  // Swap 16-bit halves
-    return n;
-}
-
-// ============================================================
-// Q6: Extract Bit Field
-// ============================================================
-uint32_t q6_create_mask(int start, int end) {
-    // Create mask with 1s from bit 'start' to bit 'end' inclusive
-    uint32_t width = end - start + 1;
-    if (width >= 32) return 0xFFFFFFFF;
-    return ((1U << width) - 1) << start;
-}
-
-uint32_t q6_extract_bits(uint32_t value, int start, int end) {
-    uint32_t mask = q6_create_mask(start, end);
-    return (value & mask) >> start;
-}
-
-uint32_t q6_set_bits(uint32_t original, int start, int end, uint32_t field) {
-    uint32_t mask = q6_create_mask(start, end);
-    return (original & ~mask) | ((field << start) & mask);
-}
-
-// ============================================================
-// Q8: Single Non-Duplicate (XOR)
-// ============================================================
-int q8_find_single(const int* arr, size_t size) {
-    int result = 0;
-    for (size_t i = 0; i < size; i++) {
-        result ^= arr[i];
-    }
-    return result;
-}
-
-// Binary search for sorted array
-int q8_find_single_sorted(const int* arr, size_t size) {
-    size_t lo = 0, hi = size - 1;
-
-    while (lo < hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        mid = mid & ~1;  // Make mid even
-
-        if (arr[mid] == arr[mid + 1]) {
-            lo = mid + 2;  // Single element is in right half
-        } else {
-            hi = mid;      // Single element is in left half (including mid)
-        }
-    }
-
-    return arr[lo];
-}
-
-// ============================================================
-// Q9: Two Non-Duplicates
-// ============================================================
-void q9_find_two_singles(const int* arr, size_t size, int result[2]) {
-    // Step 1: XOR all to get a^b
-    int xor_all = 0;
-    for (size_t i = 0; i < size; i++) {
-        xor_all ^= arr[i];
-    }
-
-    // Step 2: Find rightmost set bit
-    int diff_bit = xor_all & (-xor_all);
-
-    // Step 3: Partition by that bit
-    int group1 = 0, group2 = 0;
-    for (size_t i = 0; i < size; i++) {
-        if (arr[i] & diff_bit) {
-            group1 ^= arr[i];
-        } else {
-            group2 ^= arr[i];
-        }
-    }
-
-    result[0] = std::min(group1, group2);
-    result[1] = std::max(group1, group2);
-}
-
-// ============================================================
-// Q10: K-way Merge (for External Sort)
-// ============================================================
-void q10_k_way_merge(const std::vector<std::vector<uint32_t>>& chunks,
-                     std::vector<uint32_t>& output) {
-    // Min-heap: (value, chunk_index, position_in_chunk)
-    using HeapEntry = std::tuple<uint32_t, size_t, size_t>;
-    std::priority_queue<HeapEntry, std::vector<HeapEntry>, std::greater<HeapEntry>> heap;
-
-    // Initialize heap with first element from each chunk
-    for (size_t i = 0; i < chunks.size(); i++) {
-        if (!chunks[i].empty()) {
-            heap.push({chunks[i][0], i, 0});
-        }
-    }
-
-    // Extract min and add next from same chunk
-    while (!heap.empty()) {
-        auto [value, chunk_idx, pos] = heap.top();
-        heap.pop();
-
-        output.push_back(value);
-
-        if (pos + 1 < chunks[chunk_idx].size()) {
-            heap.push({chunks[chunk_idx][pos + 1], chunk_idx, pos + 1});
-        }
-    }
-}
-
-// ============================================================
-// Q11: Ring Buffer (Lock-free SPSC)
-// ============================================================
-template<typename T, size_t CAPACITY>
-class Q11_RingBuffer {
-    static_assert((CAPACITY & (CAPACITY - 1)) == 0, "Must be power of 2");
-
-    T buffer[CAPACITY];
-    std::atomic<size_t> head{0};  // Write position
-    std::atomic<size_t> tail{0};  // Read position
-
-public:
-    bool enqueue(const T& item) {
-        size_t h = head.load(std::memory_order_relaxed);
-        size_t t = tail.load(std::memory_order_acquire);
-
-        if (h - t >= CAPACITY) return false;  // Full
-
-        buffer[h & (CAPACITY - 1)] = item;
-        head.store(h + 1, std::memory_order_release);
-        return true;
-    }
-
-    bool dequeue(T* item) {
-        size_t t = tail.load(std::memory_order_relaxed);
-        size_t h = head.load(std::memory_order_acquire);
-
-        if (t >= h) return false;  // Empty
-
-        *item = buffer[t & (CAPACITY - 1)];
-        tail.store(t + 1, std::memory_order_release);
-        return true;
-    }
-
-    bool is_empty() const {
-        return head.load(std::memory_order_acquire) ==
-               tail.load(std::memory_order_acquire);
-    }
-
-    bool is_full() const {
-        return head.load(std::memory_order_acquire) -
-               tail.load(std::memory_order_acquire) >= CAPACITY;
-    }
-
-    size_t size() const {
-        return head.load(std::memory_order_acquire) -
-               tail.load(std::memory_order_acquire);
-    }
-};
-
-// ============================================================
-// Q12: Memory Pool Allocator
-// ============================================================
-template<size_t BLOCK_SIZE, size_t NUM_BLOCKS>
-class Q12_MemoryPool {
-    alignas(std::max_align_t) uint8_t storage[BLOCK_SIZE * NUM_BLOCKS];
-    void* free_head;
-
-public:
-    Q12_MemoryPool() {
-        // Build free list
-        free_head = storage;
-
-        for (size_t i = 0; i < NUM_BLOCKS - 1; i++) {
-            void** block = (void**)(storage + i * BLOCK_SIZE);
-            *block = storage + (i + 1) * BLOCK_SIZE;
-        }
-
-        // Last block points to null
-        void** last = (void**)(storage + (NUM_BLOCKS - 1) * BLOCK_SIZE);
-        *last = nullptr;
-    }
-
-    void* allocate() {
-        if (!free_head) return nullptr;
-
-        void* block = free_head;
-        free_head = *(void**)free_head;
-        return block;
-    }
-
-    void deallocate(void* ptr) {
-        if (!ptr) return;
-
-        *(void**)ptr = free_head;
-        free_head = ptr;
-    }
-};
-
-// ============================================================
-// Q13: LRU Cache
-// ============================================================
-class Q13_LRUCache {
-    int capacity;
-    std::list<std::pair<int, int>> items;  // (key, value)
-    std::unordered_map<int, std::list<std::pair<int, int>>::iterator> cache;
-
-public:
-    Q13_LRUCache(int cap) : capacity(cap) {}
-
-    int get(int key) {
-        auto it = cache.find(key);
-        if (it == cache.end()) return -1;
-
-        // Move to front (most recently used)
-        items.splice(items.begin(), items, it->second);
-        return it->second->second;
-    }
-
-    void put(int key, int value) {
-        auto it = cache.find(key);
-
-        if (it != cache.end()) {
-            // Update existing
-            it->second->second = value;
-            items.splice(items.begin(), items, it->second);
-            return;
-        }
-
-        // Evict if full
-        if ((int)cache.size() >= capacity) {
-            auto& lru = items.back();
-            cache.erase(lru.first);
-            items.pop_back();
-        }
-
-        // Insert new
-        items.push_front({key, value});
-        cache[key] = items.begin();
-    }
-};
-
-// ============================================================
-// Q15: Endianness Conversion
-// ============================================================
-bool q15_is_little_endian() {
-    uint16_t x = 1;
-    return *(uint8_t*)&x == 1;
-}
-
-uint16_t q15_swap_bytes_16(uint16_t value) {
-    return (value << 8) | (value >> 8);
-}
-
-uint32_t q15_swap_bytes_32(uint32_t value) {
-    return ((value & 0x000000FF) << 24) |
-           ((value & 0x0000FF00) << 8)  |
-           ((value & 0x00FF0000) >> 8)  |
-           ((value & 0xFF000000) >> 24);
-}
-
-uint64_t q15_swap_bytes_64(uint64_t value) {
-    return ((value & 0x00000000000000FFULL) << 56) |
-           ((value & 0x000000000000FF00ULL) << 40) |
-           ((value & 0x0000000000FF0000ULL) << 24) |
-           ((value & 0x00000000FF000000ULL) << 8)  |
-           ((value & 0x000000FF00000000ULL) >> 8)  |
-           ((value & 0x0000FF0000000000ULL) >> 24) |
-           ((value & 0x00FF000000000000ULL) >> 40) |
-           ((value & 0xFF00000000000000ULL) >> 56);
-}
-
-uint32_t q15_read_be32(const uint8_t* data) {
-    return ((uint32_t)data[0] << 24) |
-           ((uint32_t)data[1] << 16) |
-           ((uint32_t)data[2] << 8)  |
-           ((uint32_t)data[3]);
-}
-
-void q15_write_be32(uint8_t* data, uint32_t value) {
-    data[0] = (value >> 24) & 0xFF;
-    data[1] = (value >> 16) & 0xFF;
-    data[2] = (value >> 8)  & 0xFF;
-    data[3] = value & 0xFF;
-}
-
-// ============================================================
-// Q17: Struct Size Calculation
-// ============================================================
-size_t q17_calculate_struct_size(const size_t* member_sizes,
-                                  const size_t* member_alignments,
-                                  size_t num_members) {
-    if (num_members == 0) return 0;
-
-    size_t offset = 0;
-    size_t max_align = 1;
-
-    for (size_t i = 0; i < num_members; i++) {
-        size_t align = member_alignments[i];
-        max_align = std::max(max_align, align);
-
-        // Add padding for alignment
-        size_t padding = (align - (offset % align)) % align;
-        offset += padding;
-
-        // Add member size
-        offset += member_sizes[i];
-    }
-
-    // Final padding for struct alignment
-    size_t final_padding = (max_align - (offset % max_align)) % max_align;
-    offset += final_padding;
-
-    return offset;
-}
-
-// ============================================================
 // Q3: Count Distinct Values (Approximate)
 // ============================================================
 /*
@@ -594,6 +250,67 @@ public:
         return (uint32_t)(estimate + 0.5);  // Round to nearest
     }
 };
+
+// ============================================================
+// Q4: Swap Without Temp (XOR method)
+// ============================================================
+void q4_swap_xor(int* a, int* b) {
+    if (a == b) return;  // Critical: same pointer check!
+    *a ^= *b;
+    *b ^= *a;
+    *a ^= *b;
+}
+
+// BONUS: 64-bit XOR swap - identical logic, different type
+void q4_swap_xor_64(uint64_t* a, uint64_t* b) {
+    if (a == b) return;
+    *a ^= *b;
+    *b ^= *a;
+    *a ^= *b;
+}
+
+// ============================================================
+// Q5: Reverse Bits
+// ============================================================
+// Naive O(32)
+uint32_t q5_reverse_naive(uint32_t n) {
+    uint32_t result = 0;
+    for (int i = 0; i < 32; i++) {
+        result = (result << 1) | (n & 1);
+        n >>= 1;
+    }
+    return result;
+}
+
+// Divide and conquer O(log 32) = O(5)
+uint32_t q5_reverse_divide_conquer(uint32_t n) {
+    n = ((n & 0x55555555) << 1)  | ((n & 0xAAAAAAAA) >> 1);   // Swap adjacent bits
+    n = ((n & 0x33333333) << 2)  | ((n & 0xCCCCCCCC) >> 2);   // Swap pairs
+    n = ((n & 0x0F0F0F0F) << 4)  | ((n & 0xF0F0F0F0) >> 4);   // Swap nibbles
+    n = ((n & 0x00FF00FF) << 8)  | ((n & 0xFF00FF00) >> 8);   // Swap bytes
+    n = ((n & 0x0000FFFF) << 16) | ((n & 0xFFFF0000) >> 16);  // Swap 16-bit halves
+    return n;
+}
+
+// ============================================================
+// Q6: Extract Bit Field
+// ============================================================
+uint32_t q6_create_mask(int start, int end) {
+    // Create mask with 1s from bit 'start' to bit 'end' inclusive
+    uint32_t width = end - start + 1;
+    if (width >= 32) return 0xFFFFFFFF;
+    return ((1U << width) - 1) << start;
+}
+
+uint32_t q6_extract_bits(uint32_t value, int start, int end) {
+    uint32_t mask = q6_create_mask(start, end);
+    return (value & mask) >> start;
+}
+
+uint32_t q6_set_bits(uint32_t original, int start, int end, uint32_t field) {
+    uint32_t mask = q6_create_mask(start, end);
+    return (original & ~mask) | ((field << start) & mask);
+}
 
 // ============================================================
 // Q7: Atomic Bit Operations
@@ -686,6 +403,571 @@ void atomic_write_field(volatile uint32_t* reg, int start, int end, uint32_t val
 }
 
 } // namespace Q7_Atomics
+
+// ============================================================
+// Q8: Single Non-Duplicate (XOR)
+// ============================================================
+int q8_find_single(const int* arr, size_t size) {
+    int result = 0;
+    for (size_t i = 0; i < size; i++) {
+        result ^= arr[i];
+    }
+    return result;
+}
+
+// Binary search for sorted array
+int q8_find_single_sorted(const int* arr, size_t size) {
+    size_t lo = 0, hi = size - 1;
+
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        mid = mid & ~1;  // Make mid even
+
+        if (arr[mid] == arr[mid + 1]) {
+            lo = mid + 2;  // Single element is in right half
+        } else {
+            hi = mid;      // Single element is in left half (including mid)
+        }
+    }
+
+    return arr[lo];
+}
+
+// ============================================================
+// Q9: Two Non-Duplicates
+// ============================================================
+void q9_find_two_singles(const int* arr, size_t size, int result[2]) {
+    // Step 1: XOR all to get a^b
+    int xor_all = 0;
+    for (size_t i = 0; i < size; i++) {
+        xor_all ^= arr[i];
+    }
+
+    // Step 2: Find rightmost set bit
+    int diff_bit = xor_all & (-xor_all);
+
+    // Step 3: Partition by that bit
+    int group1 = 0, group2 = 0;
+    for (size_t i = 0; i < size; i++) {
+        if (arr[i] & diff_bit) {
+            group1 ^= arr[i];
+        } else {
+            group2 ^= arr[i];
+        }
+    }
+
+    result[0] = std::min(group1, group2);
+    result[1] = std::max(group1, group2);
+}
+
+
+// Find THREE elements that appear only once (all others appear twice).
+// Uses bit-by-bit partitioning to isolate singles.
+//
+// Approach:
+// 1. XOR all elements → a^b^c
+// 2. For each set bit of xor_all, XOR elements with that bit set.
+//    If result != xor_all, we isolated one single (exactly 1 of 3 has that bit).
+// 3. Edge case: if all set bits of xor_all are shared by all 3 singles,
+//    use zero bits of xor_all to find a pair XOR, then derive the third.
+// 4. Once one single is known, reduce to the two-singles problem.
+//
+// Time: O(n), Space: O(1)
+void q9_find_three_singles(const int* arr, size_t size, int result[3]) {
+    // Step 1: XOR all elements to get a^b^c
+    int xor_all = 0;
+    for (size_t i = 0; i < size; i++) xor_all ^= arr[i];
+
+    // Step 2: Find one of the three singles
+    int first = 0;
+    bool found = false;
+
+    // Try bits where xor_all has a 1:
+    // If exactly 1 of {a,b,c} has this bit, group XOR = that single.
+    // If all 3 have it, group XOR = xor_all.
+    for (int bit = 0; bit < 32 && !found; bit++) {
+        if (!(xor_all & (1 << bit))) continue;
+        int group_xor = 0;
+        for (size_t i = 0; i < size; i++) {
+            if (arr[i] & (1 << bit)) group_xor ^= arr[i];
+        }
+        if (group_xor != xor_all) {
+            first = group_xor;
+            found = true;
+        }
+    }
+
+    if (!found) {
+        // All set bits of xor_all are shared by all 3 singles.
+        // Use bits where xor_all=0: exactly 0 or 2 singles have each bit.
+        // If 2 have it, group XOR = their XOR. Third = xor_all ^ pair_xor.
+        for (int bit = 0; bit < 32 && !found; bit++) {
+            if (xor_all & (1 << bit)) continue;
+            int group_xor = 0;
+            for (size_t i = 0; i < size; i++) {
+                if (arr[i] & (1 << bit)) group_xor ^= arr[i];
+            }
+            if (group_xor != 0) {
+                first = xor_all ^ group_xor;
+                found = true;
+            }
+        }
+    }
+
+    // Step 3: Find the other two using the standard two-singles technique
+    int xor_remaining = xor_all ^ first;  // = b ^ c
+    int diff_bit = xor_remaining & (-xor_remaining);
+
+    int group1 = 0, group2 = 0;
+    for (size_t i = 0; i < size; i++) {
+        if (arr[i] & diff_bit) group1 ^= arr[i];
+        else                   group2 ^= arr[i];
+    }
+
+    // Remove first's contribution from whichever group it fell into
+    if (first & diff_bit) group1 ^= first;
+    else                  group2 ^= first;
+
+    result[0] = first;
+    result[1] = group1;
+    result[2] = group2;
+    std::sort(result, result + 3);
+}
+
+// ============================================================
+// Q10: K-way Merge (for External Sort)
+// ============================================================
+void q10_k_way_merge(const std::vector<std::vector<uint32_t>>& chunks,
+                     std::vector<uint32_t>& output) {
+    // Min-heap: (value, chunk_index, position_in_chunk)
+    using HeapEntry = std::tuple<uint32_t, size_t, size_t>;
+    std::priority_queue<HeapEntry, std::vector<HeapEntry>, std::greater<HeapEntry>> heap;
+
+    // Initialize heap with first element from each chunk
+    for (size_t i = 0; i < chunks.size(); i++) {
+        if (!chunks[i].empty()) {
+            heap.push({chunks[i][0], i, 0});
+        }
+    }
+
+    // Extract min and add next from same chunk
+    while (!heap.empty()) {
+        auto [value, chunk_idx, pos] = heap.top();
+        heap.pop();
+
+        output.push_back(value);
+
+        if (pos + 1 < chunks[chunk_idx].size()) {
+            heap.push({chunks[chunk_idx][pos + 1], chunk_idx, pos + 1});
+        }
+    }
+}
+
+// BONUS: External sort with actual file I/O
+// Splits input file into sorted chunks that fit in RAM, writes each to a
+// temp file, then performs a k-way merge of all temp files into the output.
+#include <fstream>
+void q10_external_sort_with_files(const char* input_file, const char* output_file,
+                                   size_t ram_limit) {
+    size_t chunk_capacity = ram_limit / sizeof(uint32_t);
+    if (chunk_capacity == 0) return;
+
+    std::vector<uint32_t> buffer(chunk_capacity);
+    std::vector<std::string> temp_files;
+
+    // Phase 1: Read input in chunks, sort each, write to temp file
+    std::ifstream input(input_file, std::ios::binary);
+    if (!input) return;
+
+    while (input) {
+        size_t count = 0;
+        while (count < chunk_capacity) {
+            uint32_t val;
+            if (!input.read(reinterpret_cast<char*>(&val), sizeof(val))) break;
+            buffer[count++] = val;
+        }
+        if (count == 0) break;
+
+        std::sort(buffer.begin(), buffer.begin() + count);
+
+        char tmp_name[64];
+        snprintf(tmp_name, sizeof(tmp_name), "/tmp/extsort_%zu.tmp", temp_files.size());
+        std::ofstream tmp(tmp_name, std::ios::binary);
+        tmp.write(reinterpret_cast<const char*>(buffer.data()), count * sizeof(uint32_t));
+        temp_files.push_back(tmp_name);
+    }
+    input.close();
+
+    // Phase 2: K-way merge of temp files using min-heap
+    struct MergeEntry {
+        uint32_t value;
+        size_t file_idx;
+        bool operator>(const MergeEntry& o) const { return value > o.value; }
+    };
+    std::priority_queue<MergeEntry, std::vector<MergeEntry>, std::greater<MergeEntry>> heap;
+
+    std::vector<std::ifstream> readers(temp_files.size());
+    for (size_t i = 0; i < temp_files.size(); i++) {
+        readers[i].open(temp_files[i], std::ios::binary);
+        uint32_t val;
+        if (readers[i].read(reinterpret_cast<char*>(&val), sizeof(val))) {
+            heap.push({val, i});
+        }
+    }
+
+    std::ofstream output_f(output_file, std::ios::binary);
+    while (!heap.empty()) {
+        auto [val, idx] = heap.top();
+        heap.pop();
+        output_f.write(reinterpret_cast<const char*>(&val), sizeof(val));
+
+        uint32_t next_val;
+        if (readers[idx].read(reinterpret_cast<char*>(&next_val), sizeof(next_val))) {
+            heap.push({next_val, idx});
+        }
+    }
+
+    // Cleanup temp files
+    for (auto& f : temp_files) std::remove(f.c_str());
+}
+
+// ============================================================
+// Q11: Ring Buffer (Lock-free SPSC)
+// ============================================================
+template<typename T, size_t CAPACITY>
+class Q11_RingBuffer {
+    static_assert((CAPACITY & (CAPACITY - 1)) == 0, "Must be power of 2");
+
+    T buffer[CAPACITY];
+    std::atomic<size_t> head{0};  // Write position
+    std::atomic<size_t> tail{0};  // Read position
+
+public:
+    bool enqueue(const T& item) {
+        size_t h = head.load(std::memory_order_relaxed);
+        size_t t = tail.load(std::memory_order_acquire);
+
+        if (h - t >= CAPACITY) return false;  // Full
+
+        buffer[h & (CAPACITY - 1)] = item;
+        head.store(h + 1, std::memory_order_release);
+        return true;
+    }
+
+    bool dequeue(T* item) {
+        size_t t = tail.load(std::memory_order_relaxed);
+        size_t h = head.load(std::memory_order_acquire);
+
+        if (t >= h) return false;  // Empty
+
+        *item = buffer[t & (CAPACITY - 1)];
+        tail.store(t + 1, std::memory_order_release);
+        return true;
+    }
+
+    bool is_empty() const {
+        return head.load(std::memory_order_acquire) ==
+               tail.load(std::memory_order_acquire);
+    }
+
+    bool is_full() const {
+        return head.load(std::memory_order_acquire) -
+               tail.load(std::memory_order_acquire) >= CAPACITY;
+    }
+
+    size_t size() const {
+        return head.load(std::memory_order_acquire) -
+               tail.load(std::memory_order_acquire);
+    }
+};
+
+// BONUS: Overwriting ring buffer for logging systems.
+// When full, enqueue overwrites the oldest entry instead of failing.
+template<typename T, size_t CAPACITY>
+class Q11_OverwritingRingBuffer {
+    static_assert((CAPACITY & (CAPACITY - 1)) == 0, "Must be power of 2");
+
+    T buffer[CAPACITY];
+    size_t head;  // Next write position
+    size_t count; // Number of valid elements
+
+public:
+    Q11_OverwritingRingBuffer() : head(0), count(0) {}
+
+    // Always succeeds. Overwrites oldest entry when full.
+    void enqueue(const T& item) {
+        buffer[head & (CAPACITY - 1)] = item;
+        head++;
+        if (count < CAPACITY) {
+            count++;
+        }
+        // If count was already CAPACITY, oldest is implicitly overwritten
+        // because tail effectively advances.
+    }
+
+    bool dequeue(T* item) {
+        if (count == 0) return false;
+        // Oldest element is at (head - count)
+        size_t tail = head - count;
+        *item = buffer[tail & (CAPACITY - 1)];
+        count--;
+        return true;
+    }
+
+    size_t size() const { return count; }
+    bool is_empty() const { return count == 0; }
+    bool is_full() const { return count >= CAPACITY; }
+};
+
+// ============================================================
+// Q12: Memory Pool Allocator
+// ============================================================
+template<size_t BLOCK_SIZE, size_t NUM_BLOCKS>
+class Q12_MemoryPool {
+    alignas(std::max_align_t) uint8_t storage[BLOCK_SIZE * NUM_BLOCKS];
+    void* free_head;
+
+public:
+    Q12_MemoryPool() {
+        // Build free list
+        free_head = storage;
+
+        for (size_t i = 0; i < NUM_BLOCKS - 1; i++) {
+            void** block = (void**)(storage + i * BLOCK_SIZE);
+            *block = storage + (i + 1) * BLOCK_SIZE;
+        }
+
+        // Last block points to null
+        void** last = (void**)(storage + (NUM_BLOCKS - 1) * BLOCK_SIZE);
+        *last = nullptr;
+    }
+
+    void* allocate() {
+        if (!free_head) return nullptr;
+
+        void* block = free_head;
+        free_head = *(void**)free_head;
+        return block;
+    }
+
+    void deallocate(void* ptr) {
+        if (!ptr) return;
+
+        *(void**)ptr = free_head;
+        free_head = ptr;
+    }
+};
+
+// BONUS: Type-safe object pool wrapping MemoryPool.
+// Uses placement new/explicit destructor for proper construction/destruction.
+template<typename T, size_t NUM_OBJECTS>
+class Q12_ObjectPool {
+    // Blocks must be large enough for both T and the free-list pointer
+    static constexpr size_t BLOCK_SZ = sizeof(T) >= sizeof(void*) ? sizeof(T) : sizeof(void*);
+    Q12_MemoryPool<BLOCK_SZ, NUM_OBJECTS> pool;
+
+public:
+    // Allocate and construct with forwarded arguments
+    template<typename... Args>
+    T* create(Args&&... args) {
+        void* mem = pool.allocate();
+        if (!mem) return nullptr;
+        return new (mem) T(std::forward<Args>(args)...);
+    }
+
+    // Destroy object and return memory to pool
+    void destroy(T* obj) {
+        if (!obj) return;
+        obj->~T();
+        pool.deallocate(obj);
+    }
+};
+
+// ============================================================
+// Q13: LRU Cache
+// ============================================================
+class Q13_LRUCache {
+    int capacity;
+    std::list<std::pair<int, int>> items;  // (key, value)
+    std::unordered_map<int, std::list<std::pair<int, int>>::iterator> cache;
+
+public:
+    Q13_LRUCache(int cap) : capacity(cap) {}
+
+    int get(int key) {
+        auto it = cache.find(key);
+        if (it == cache.end()) return -1;
+
+        // Move to front (most recently used)
+        items.splice(items.begin(), items, it->second);
+        return it->second->second;
+    }
+
+    void put(int key, int value) {
+        auto it = cache.find(key);
+
+        if (it != cache.end()) {
+            // Update existing
+            it->second->second = value;
+            items.splice(items.begin(), items, it->second);
+            return;
+        }
+
+        // Evict if full
+        if ((int)cache.size() >= capacity) {
+            auto& lru = items.back();
+            cache.erase(lru.first);
+            items.pop_back();
+        }
+
+        // Insert new
+        items.push_front({key, value});
+        cache[key] = items.begin();
+    }
+};
+
+// BONUS: Fixed-size LRU Cache for embedded systems.
+// No dynamic allocation. Uses array-based doubly-linked list with open-addressing hash.
+template<int CAPACITY>
+class Q13_FixedLRUCache {
+    static_assert(CAPACITY > 0, "Capacity must be positive");
+
+    struct Node {
+        int key;
+        int value;
+        int prev;  // Index (-1 = none)
+        int next;  // Index (-1 = none)
+        bool used;
+    };
+
+    Node nodes[CAPACITY];
+    int head;   // MRU
+    int tail;   // LRU
+    int count;
+
+    // Open-addressing hash table (2x capacity for low collision rate)
+    static const int HASH_SIZE = CAPACITY * 2;
+    int hash_table[HASH_SIZE];
+
+    int hash_fn(int key) const {
+        return ((key % HASH_SIZE) + HASH_SIZE) % HASH_SIZE;
+    }
+
+    // Linear probe to find key or empty slot
+    int hash_find(int key) const {
+        int h = hash_fn(key);
+        for (int i = 0; i < HASH_SIZE; i++) {
+            int idx = (h + i) % HASH_SIZE;
+            if (hash_table[idx] == -1) return -1;
+            if (nodes[hash_table[idx]].key == key && nodes[hash_table[idx]].used)
+                return hash_table[idx];
+        }
+        return -1;
+    }
+
+    void hash_insert(int key, int node_idx) {
+        int h = hash_fn(key);
+        for (int i = 0; i < HASH_SIZE; i++) {
+            int idx = (h + i) % HASH_SIZE;
+            if (hash_table[idx] == -1) {
+                hash_table[idx] = node_idx;
+                return;
+            }
+        }
+    }
+
+    void hash_remove(int key) {
+        int h = hash_fn(key);
+        for (int i = 0; i < HASH_SIZE; i++) {
+            int idx = (h + i) % HASH_SIZE;
+            if (hash_table[idx] == -1) return;
+            if (nodes[hash_table[idx]].key == key) {
+                hash_table[idx] = -1;
+                // Rehash subsequent entries to fill the gap
+                int j = 1;
+                while (true) {
+                    int next_idx = (idx + j) % HASH_SIZE;
+                    if (hash_table[next_idx] == -1) break;
+                    int ni = hash_table[next_idx];
+                    hash_table[next_idx] = -1;
+                    hash_insert(nodes[ni].key, ni);
+                    j++;
+                }
+                return;
+            }
+        }
+    }
+
+    // Move node to head of LRU list
+    void move_to_head(int idx) {
+        if (idx == head) return;
+        // Unlink
+        if (nodes[idx].prev != -1) nodes[nodes[idx].prev].next = nodes[idx].next;
+        if (nodes[idx].next != -1) nodes[nodes[idx].next].prev = nodes[idx].prev;
+        if (idx == tail) tail = nodes[idx].prev;
+        // Link at head
+        nodes[idx].prev = -1;
+        nodes[idx].next = head;
+        if (head != -1) nodes[head].prev = idx;
+        head = idx;
+        if (tail == -1) tail = idx;
+    }
+
+    int alloc_node() {
+        for (int i = 0; i < CAPACITY; i++) {
+            if (!nodes[i].used) return i;
+        }
+        return -1;
+    }
+
+public:
+    Q13_FixedLRUCache() : head(-1), tail(-1), count(0) {
+        for (int i = 0; i < CAPACITY; i++) nodes[i].used = false;
+        for (int i = 0; i < HASH_SIZE; i++) hash_table[i] = -1;
+    }
+
+    int get(int key) {
+        int idx = hash_find(key);
+        if (idx == -1) return -1;
+        move_to_head(idx);
+        return nodes[idx].value;
+    }
+
+    void put(int key, int value) {
+        int idx = hash_find(key);
+        if (idx != -1) {
+            nodes[idx].value = value;
+            move_to_head(idx);
+            return;
+        }
+
+        // Evict LRU if full
+        if (count >= CAPACITY) {
+            int evict = tail;
+            hash_remove(nodes[evict].key);
+            // Unlink tail
+            tail = nodes[evict].prev;
+            if (tail != -1) nodes[tail].next = -1;
+            else head = -1;
+            nodes[evict].used = false;
+            count--;
+        }
+
+        idx = alloc_node();
+        nodes[idx].key = key;
+        nodes[idx].value = value;
+        nodes[idx].used = true;
+        nodes[idx].prev = -1;
+        nodes[idx].next = head;
+        if (head != -1) nodes[head].prev = idx;
+        head = idx;
+        if (tail == -1) tail = idx;
+        count++;
+        hash_insert(key, idx);
+    }
+
+    int size() const { return count; }
+};
 
 // ============================================================
 // Q14: Button Debounce
@@ -806,6 +1088,157 @@ public:
     }
 };
 
+// BONUS: Multi-button manager with press/release/long-press/double-click detection.
+// Each button is debounced independently. A single callback receives all events.
+#include <functional>
+class Q14_ButtonManager {
+public:
+    enum Event { NONE, PRESSED, RELEASED, LONG_PRESS, DOUBLE_CLICK };
+    using EventCallback = std::function<void(int button_id, Event event)>;
+
+private:
+    static const int MAX_BUTTONS = 8;
+    static const int DEBOUNCE_COUNT = 5;
+    static const uint32_t LONG_PRESS_MS = 1000;
+    static const uint32_t DOUBLE_CLICK_MS = 300;
+
+    struct ButtonState {
+        int id;
+        bool (*gpio_read)();
+        bool stable;         // Debounced state
+        bool last_raw;
+        int consec;          // Consecutive same readings
+        uint32_t press_time; // Tick when press was confirmed
+        uint32_t release_time;
+        bool waiting_double;  // Waiting to see if a second click follows
+        bool active;
+    };
+
+    ButtonState buttons[MAX_BUTTONS];
+    int button_count;
+    EventCallback callback;
+    uint32_t current_tick;
+
+public:
+    Q14_ButtonManager() : button_count(0), current_tick(0) {}
+
+    void register_button(int button_id, bool (*gpio_read_func)()) {
+        if (button_count >= MAX_BUTTONS) return;
+        ButtonState& b = buttons[button_count++];
+        b.id = button_id;
+        b.gpio_read = gpio_read_func;
+        b.stable = false;
+        b.last_raw = false;
+        b.consec = 0;
+        b.press_time = 0;
+        b.release_time = 0;
+        b.waiting_double = false;
+        b.active = true;
+    }
+
+    void set_callback(EventCallback cb) { callback = cb; }
+
+    // Call periodically (e.g., every 5ms). tick_ms = current time in ms.
+    void update(uint32_t tick_ms) {
+        current_tick = tick_ms;
+        for (int i = 0; i < button_count; i++) {
+            ButtonState& b = buttons[i];
+            if (!b.active) continue;
+
+            bool raw = b.gpio_read();
+
+            // Debounce
+            if (raw == b.last_raw) {
+                if (b.consec < DEBOUNCE_COUNT) b.consec++;
+            } else {
+                b.consec = 1;
+                b.last_raw = raw;
+                continue;
+            }
+
+            if (b.consec < DEBOUNCE_COUNT || raw == b.stable) {
+                // Check long press while held
+                if (b.stable && (current_tick - b.press_time >= LONG_PRESS_MS)) {
+                    if (callback) callback(b.id, LONG_PRESS);
+                    b.press_time = current_tick;  // Reset to avoid repeat
+                }
+                // Check double-click timeout
+                if (b.waiting_double && !b.stable &&
+                    (current_tick - b.release_time > DOUBLE_CLICK_MS)) {
+                    b.waiting_double = false;
+                    // Single click confirmed (no second press came)
+                }
+                continue;
+            }
+
+            // State changed
+            bool old = b.stable;
+            b.stable = raw;
+
+            if (b.stable && !old) {
+                // Press
+                if (b.waiting_double &&
+                    (current_tick - b.release_time <= DOUBLE_CLICK_MS)) {
+                    if (callback) callback(b.id, DOUBLE_CLICK);
+                    b.waiting_double = false;
+                } else {
+                    if (callback) callback(b.id, PRESSED);
+                }
+                b.press_time = current_tick;
+            } else if (!b.stable && old) {
+                // Release
+                if (callback) callback(b.id, RELEASED);
+                b.release_time = current_tick;
+                b.waiting_double = true;
+            }
+        }
+    }
+};
+
+// ============================================================
+// Q15: Endianness Conversion
+// ============================================================
+bool q15_is_little_endian() {
+    uint16_t x = 1;
+    return *(uint8_t*)&x == 1;
+}
+
+uint16_t q15_swap_bytes_16(uint16_t value) {
+    return (value << 8) | (value >> 8);
+}
+
+uint32_t q15_swap_bytes_32(uint32_t value) {
+    return ((value & 0x000000FF) << 24) |
+           ((value & 0x0000FF00) << 8)  |
+           ((value & 0x00FF0000) >> 8)  |
+           ((value & 0xFF000000) >> 24);
+}
+
+uint64_t q15_swap_bytes_64(uint64_t value) {
+    return ((value & 0x00000000000000FFULL) << 56) |
+           ((value & 0x000000000000FF00ULL) << 40) |
+           ((value & 0x0000000000FF0000ULL) << 24) |
+           ((value & 0x00000000FF000000ULL) << 8)  |
+           ((value & 0x000000FF00000000ULL) >> 8)  |
+           ((value & 0x0000FF0000000000ULL) >> 24) |
+           ((value & 0x00FF000000000000ULL) >> 40) |
+           ((value & 0xFF00000000000000ULL) >> 56);
+}
+
+uint32_t q15_read_be32(const uint8_t* data) {
+    return ((uint32_t)data[0] << 24) |
+           ((uint32_t)data[1] << 16) |
+           ((uint32_t)data[2] << 8)  |
+           ((uint32_t)data[3]);
+}
+
+void q15_write_be32(uint8_t* data, uint32_t value) {
+    data[0] = (value >> 24) & 0xFF;
+    data[1] = (value >> 16) & 0xFF;
+    data[2] = (value >> 8)  & 0xFF;
+    data[3] = value & 0xFF;
+}
+
 // ============================================================
 // Q16: Volatile Usage
 // ============================================================
@@ -846,6 +1279,36 @@ uint64_t q16_read_double_register(volatile uint32_t* reg_high, volatile uint32_t
     } while (high1 != high2);  // Retry if high word changed
 
     return ((uint64_t)high1 << 32) | low;
+}
+
+// ============================================================
+// Q17: Struct Size Calculation
+// ============================================================
+size_t q17_calculate_struct_size(const size_t* member_sizes,
+                                  const size_t* member_alignments,
+                                  size_t num_members) {
+    if (num_members == 0) return 0;
+
+    size_t offset = 0;
+    size_t max_align = 1;
+
+    for (size_t i = 0; i < num_members; i++) {
+        size_t align = member_alignments[i];
+        max_align = std::max(max_align, align);
+
+        // Add padding for alignment
+        size_t padding = (align - (offset % align)) % align;
+        offset += padding;
+
+        // Add member size
+        offset += member_sizes[i];
+    }
+
+    // Final padding for struct alignment
+    size_t final_padding = (max_align - (offset % max_align)) % max_align;
+    offset += final_padding;
+
+    return offset;
 }
 
 // ============================================================
@@ -1353,6 +1816,48 @@ void stack_monitor() {
 
 } // namespace Q21_StackOverflow
 
+// BONUS: Function-level stack protector (simulates -fstack-protector).
+// A random canary is placed on the stack at function entry and checked at exit.
+// If a buffer overflow corrupts the stack, the canary changes and is detected.
+namespace Q21_StackProtector {
+
+// Global canary value, randomized at init (use HWRNG in real system)
+static uint32_t __stack_chk_guard = 0;
+
+void init_stack_protector() {
+    // In production, seed from hardware RNG or /dev/urandom
+    __stack_chk_guard = 0x12345678 ^ (uint32_t)(uintptr_t)&__stack_chk_guard;
+}
+
+// Called when stack smashing is detected - should not return
+void __stack_chk_fail() {
+    printf("*** Stack smashing detected ***\n");
+    // In real system: log, dump registers, reboot
+}
+
+// Macros for instrumenting functions:
+//   STACK_PROTECT_ENTER() at function start places canary on stack.
+//   STACK_PROTECT_EXIT()  at function end verifies canary is intact.
+#define Q21_STACK_PROTECT_ENTER() \
+    volatile uint32_t __stack_canary = Q21_StackProtector::__stack_chk_guard
+
+#define Q21_STACK_PROTECT_EXIT() \
+    do { \
+        if (__stack_canary != Q21_StackProtector::__stack_chk_guard) { \
+            Q21_StackProtector::__stack_chk_fail(); \
+        } \
+    } while(0)
+
+// Example usage:
+// void sensitive_function() {
+//     Q21_STACK_PROTECT_ENTER();
+//     char buffer[64];
+//     // ... work with buffer ...
+//     Q21_STACK_PROTECT_EXIT();
+// }
+
+} // namespace Q21_StackProtector
+
 // ============================================================
 // Q22: Memory Leak Detection
 // ============================================================
@@ -1629,6 +2134,7 @@ void analyze_hard_fault(const FaultRegisters& regs) {
  * - Stacked PC for faulting instruction
  * - Stack painting for overflow detection
  */
+
 
 // ============================================================
 // Demo helpers for Q1 and Q2 stream interface

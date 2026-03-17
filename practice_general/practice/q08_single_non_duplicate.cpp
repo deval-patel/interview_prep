@@ -43,8 +43,13 @@
  */
 int find_single(const int* arr, size_t size) {
     // TODO: Implement using XOR
+    uint32_t result = 0;
 
-    return 0;  // Placeholder
+    for (size_t i = 0; i < size; i++) {
+        result ^= arr[i];
+    }
+
+    return result;  // Placeholder
 }
 
 /**
@@ -69,8 +74,37 @@ int find_single_sorted(const int* arr, size_t size) {
     // After the single, pairs start at odd indices.
     //
     // Binary search for the transition point.
+    int left = 0;
+    int right = size - 1;
 
-    return 0;  // Placeholder
+    while (left < right) {
+        int mid = left + (right - left) / 2;
+        // If mid is even, the pair should be mid and mid + 1
+        if (mid % 2 == 0)
+        {
+            if (arr[mid] == arr[mid + 1])
+            {
+                left = mid + 2;  // Single is in the right half
+            } 
+            else
+            {
+                right = mid;     // Single is in the left half (including mid)
+            }
+        } 
+        else 
+        { // mid is odd, pair should be mid and mid - 1
+            if (arr[mid] == arr[mid - 1])
+            {
+                left = mid + 1;  // Single is in the right half
+            }
+            else
+            {
+                right = mid - 1; // Single is in the left half
+            }
+        }
+    }
+
+    return arr[left];  // The single element is at the left index
 }
 
 // ============ TEST FRAMEWORK ============

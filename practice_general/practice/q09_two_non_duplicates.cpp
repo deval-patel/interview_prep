@@ -51,8 +51,7 @@
  */
 uint32_t rightmost_set_bit(uint32_t n) {
     // TODO: Implement
-
-    return 0;  // Placeholder
+    return n & ~(n - 1);
 }
 
 /**
@@ -66,13 +65,23 @@ void find_two_singles(const int* arr, size_t size, int result[2]) {
     // TODO: Implement using the approach described above
     //
     // Step 1: XOR all elements to get a^b
+    uint32_t xorALL = 0;
+    for (size_t i = 0; i < size; i++) {
+        xorALL ^= arr[i];
+    }
     //
     // Step 2: Find a bit where a and b differ (rightmost set bit of a^b)
     //
-    // Step 3: Partition and XOR to find a and b separately
+    uint32_t dividerBit = rightmost_set_bit(xorALL);
 
-    result[0] = 0;  // Placeholder
-    result[1] = 0;  // Placeholder
+    // Step 3: Partition and XOR to find a and b separately
+    for (size_t i = 0; i < size; i++) {
+        if (arr[i] & dividerBit) {
+            result[0] ^= arr[i];  // Group with bit set
+        } else {
+            result[1] ^= arr[i];  // Group with bit clear
+        }
+    }
 }
 
 /**

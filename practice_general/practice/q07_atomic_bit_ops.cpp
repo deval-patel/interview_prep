@@ -107,6 +107,11 @@ void atomic_set_bit(int bit) {
     // 1. Save interrupt state and disable
     // 2. Read-modify-write
     // 3. Restore interrupt state
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp |= (1U << bit);
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
@@ -117,6 +122,11 @@ void atomic_set_bit(int bit) {
  */
 void atomic_clear_bit(int bit) {
     // TODO: Implement safely
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp &= ~(1U << bit);
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
@@ -127,6 +137,11 @@ void atomic_clear_bit(int bit) {
  */
 void atomic_toggle_bit(int bit) {
     // TODO: Implement safely
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp ^= (1U << bit);
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
@@ -137,6 +152,11 @@ void atomic_toggle_bit(int bit) {
  */
 void atomic_set_mask(uint32_t mask) {
     // TODO: Implement safely
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp |= mask;
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
@@ -147,6 +167,11 @@ void atomic_set_mask(uint32_t mask) {
  */
 void atomic_clear_mask(uint32_t mask) {
     // TODO: Implement safely
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp &= ~mask;
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
@@ -162,6 +187,14 @@ void atomic_write_field(int start, int end, uint32_t value) {
     // 1. Create mask for the field
     // 2. Clear the field
     // 3. Set the new value
+    uint32_t width = end - start + 1;
+    uint32_t mask = ((1U << width) - 1) << start;
+    bool prevState = disable_interrupts();
+    uint32_t temp = reg_read();
+    temp &= ~mask;                    // Clear the field
+    temp |= (value << start) & mask;  // Set new value
+    reg_write(temp);
+    restore_interrupts(prevState);
 
 }
 
