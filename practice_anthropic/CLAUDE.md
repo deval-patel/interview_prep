@@ -43,6 +43,7 @@ during the 2026-03-21 session (do NOT revert these):
 | `stable_softmax(input_, N)` → `stable_softmax(input_)` | N param removed; use `len()` |
 | `online_softmax(input_, N)` → `online_softmax(input_)` | same |
 | `tiled_softmax(input_, N, tile_size)` → `tiled_softmax(input_, tile_size)` | same |
+| `naive_softmax(input_, N)` → `naive_softmax(input_)` | same; was missed in earlier fix |
 | Q01 `naive_matmul` — added `stats=None` | Q04 test passes a `MatmulStats` object |
 | Q18 `VLIWScheduler.print_schedule` added | Method was missing from solution |
 | Q24 `to_bf16` — overflow guard added | Values > fp32 max crashed `struct.pack` |
@@ -53,7 +54,7 @@ These practice stubs were updated to match the corrected solution signatures:
 
 | File | Change |
 |------|--------|
-| `q01_systolic_matmul.py` | `naive_matmul` now has `stats=None` param |
+| `q01_systolic_matmul.py` | `naive_matmul` now has `stats=None` param; fixed cycle count comments from `M+K-1` to `M+K+N-2` with per-column delay |
 | `q10_roofline_analysis.py` | `ai_vector_add(n)` / `ai_reduction(n)` → uppercase `N` |
 | `q13_softmax_kernel.py` | `input_arr` → `input_` in all four softmax stubs |
 | `q17_conv2d_im2col.py` | `inp` → `input_` in `naive_conv2d`, `im2col`, `im2col_conv2d` |

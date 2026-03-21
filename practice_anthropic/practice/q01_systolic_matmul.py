@@ -129,7 +129,7 @@ def systolic_matmul(A, B, M, K, N):
     # Key insight: Total cycles needed = M + K + N - 2
     # At cycle t, column n completes row m = t - (K-1) - n
     #
-    # Output for row m appears at the bottom after cycle m + K - 1
+    # Output for row m, column n appears at the bottom after cycle m + K - 1 + n
     return C
 
 

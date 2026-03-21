@@ -903,7 +903,8 @@ def compute_utilization(stats):
 # Q13 -- Softmax Kernel with Numerical Stability
 # ============================================================================
 
-def naive_softmax(input_, N):
+def naive_softmax(input_):
+    N = len(input_)
     output = [0.0] * N
     s = 0.0
     for i in range(N):
