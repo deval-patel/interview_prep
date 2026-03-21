@@ -57,6 +57,16 @@ def naive_matmul(A, B, M, K, N, stats=None):
     """
     C = [[0.0] * N for _ in range(M)]
     # TODO: Implement standard triple-loop matrix multiply
+    for m in range(M):
+        for n in range(N):
+            curr_sum = 0.0
+            for k in range(K):
+                curr_sum += A[m][k] * B[k][n]
+            C[m][n] = curr_sum
+            if stats:
+                stats.hbm_loads += 2 * K  # K loads from A and K loads from B
+                stats.hbm_stores += 1     # 1 store for C[m][n]
+                stats.flops += 2 * K      # K multiplies and K-1 adds (approx 2*K)
     # Track stats if provided
     return C
 
@@ -85,7 +95,20 @@ class SystolicArray:
     def load_weights(self, B):
         """Load weights from matrix B into PE grid."""
         # TODO: Load B[k][n] into grid[k][n].weight
-        pass
+        for k in range(self.K):
+            for n in range(self.N):
+                self.grid[k][n].weight = B[k][n]
+                # Also initialize all accumulators and signals to 0
+                # should be 0 from constructor.
+                # self.grid[k][n].acc = 0.0
+                # self.grid[k][n].in_left = 0.0
+                # self.grid[k][n].in_top = 0.0
+                # self.grid[k][n].out_right = 0.0
+                # self.grid[k][n].out_bottom = 0.0
+                # self.grid[k][n].has_input = False
+                # self.grid[k][n].has_top = False
+
+
 
     def step(self, cycle_inputs, input_valid):
         """
@@ -102,12 +125,40 @@ class SystolicArray:
         #
         # HINT: Process from right-to-left, bottom-to-top to avoid overwriting
         #       inputs before they're read, OR use a double-buffer approach
-        pass
+
+        prev_out_right  = [[self.grid[k][n].out_right  for n in range(self.N)] for k in range(self.K)]
+        prev_out_bottom = [[self.grid[k][n].out_bottom for n in range(self.N)] for k in range(self.K)]
+
+        # loop from 0 -> K
+        for k in range(self.K):
+            # loop from 0 -> N
+            for n in range(self.N):
+                # Valid activations if cycle is valid for this row or we have flowing activations
+                valid = input_valid[k] or n > 0
+                
+                # Read inputs from left neighbour or cycle inputs
+                if n == 0:
+                    act = cycle_inputs[k]
+                else:
+                    act = prev_out_right[k][n - 1]
+                
+                # Read top input
+                if k == 0:
+                    in_top = 0.0
+                else:
+                    in_top = prev_out_bottom[k - 1][n]
+                
+                # Compute
+                # pass activations forward to the right -> 
+                self.grid[k][n].out_right = act
+                # Compute bottom = top + weight * activation
+                self.grid[k][n].out_bottom = in_top + self.grid[k][n].weight * act if valid else in_top
+
 
     def get_output(self, col):
         """Get output from bottom row of PE grid for a given column."""
         # TODO: Return the partial sum output from PE[K-1][col]
-        pass
+        return self.grid[self.K - 1][col].out_bottom
 
 
 def systolic_matmul(A, B, M, K, N):
@@ -125,11 +176,39 @@ def systolic_matmul(A, B, M, K, N):
     """
     C = [[0.0] * N for _ in range(M)]
     # TODO: Implement systolic array matrix multiplication
+    sys_array = SystolicArray(K, N)
+    sys_array.load_weights(B)
+    
     #
     # Key insight: Total cycles needed = M + K + N - 2
-    # At cycle t, column n completes row m = t - (K-1) - n
     #
-    # Output for row m, column n appears at the bottom after cycle m + K - 1 + n
+    for t in range(M + K + N - 2):
+        activations = [0.0] * K
+        act_valid = [False] * K
+
+        # Get activations
+        for k in range(K):
+            m = t - k
+            # At cycle t, row m feeds A[m][t-m] into the array (if 0 <= t-m < K)
+
+            # Check if m is a valid row to put in the cycle inputs
+            if 0 <= m < M:
+                activations[k] = A[m][k]
+                act_valid[k]  = True
+        
+        # Step
+        sys_array.step(cycle_inputs=activations,
+                       input_valid=act_valid)
+
+        # At cycle t, column n completes row m = t - (K-1) - n
+        # Output for row m, column n appears at the bottom after cycle m + K - 1 + n
+        # Check if any output row is completed
+        for n in range(N):
+            m = t - (K - 1) - n
+
+            if 0 <= m < M:
+                C[m][n] = sys_array.get_output(n)
+        
     return C
 
 
