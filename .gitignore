@@ -1,6 +1,7 @@
 # Build binaries (compiled from practice_anthropic/practice/*.cpp)
 practice_anthropic/practice/q[0-9][0-9]_*
 !practice_anthropic/practice/q[0-9][0-9]_*.cpp
+!practice_anthropic/practice/q[0-9][0-9]_*.py
 
 
 # Build binaries (compiled from practice/*.cpp)
@@ -13,6 +14,7 @@ practice_general/solutions/solutions
 
 # macOS debug symbol bundles
 *.dSYM/
-
+__pycache__/
 # macOS metadata
 .DS_Store
+

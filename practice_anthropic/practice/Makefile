@@ -20,9 +20,18 @@ TARGETS = \
 	q15_kv_cache \
 	q16_xla_tile_scheduler \
 	q17_conv2d_im2col \
-	q18_vliw_instruction_pack
+	q18_vliw_instruction_pack \
+	q19_mapreduce \
+	q20_thread_pool_work_stealing \
+	q21_async_network_router \
+	q22_pipeline_parallelism \
+	q23_memory_pool_allocator \
+	q24_gradient_accumulation
 
-.PHONY: all test clean help $(addprefix test-,$(TARGETS))
+# Python targets
+PY_TARGETS = $(addsuffix .py,$(TARGETS))
+
+.PHONY: all test test-py clean help $(addprefix test-,$(TARGETS))
 
 all: $(TARGETS)
 
@@ -79,6 +88,24 @@ q17_conv2d_im2col: q17_conv2d_im2col.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 q18_vliw_instruction_pack: q18_vliw_instruction_pack.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q19_mapreduce: q19_mapreduce.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q20_thread_pool_work_stealing: q20_thread_pool_work_stealing.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q21_async_network_router: q21_async_network_router.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q22_pipeline_parallelism: q22_pipeline_parallelism.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q23_memory_pool_allocator: q23_memory_pool_allocator.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+q24_gradient_accumulation: q24_gradient_accumulation.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 # Run all tests
@@ -147,6 +174,35 @@ test-q17_conv2d_im2col: q17_conv2d_im2col
 test-q18_vliw_instruction_pack: q18_vliw_instruction_pack
 	./q18_vliw_instruction_pack
 
+test-q19_mapreduce: q19_mapreduce
+	./q19_mapreduce
+
+test-q20_thread_pool_work_stealing: q20_thread_pool_work_stealing
+	./q20_thread_pool_work_stealing
+
+test-q21_async_network_router: q21_async_network_router
+	./q21_async_network_router
+
+test-q22_pipeline_parallelism: q22_pipeline_parallelism
+	./q22_pipeline_parallelism
+
+test-q23_memory_pool_allocator: q23_memory_pool_allocator
+	./q23_memory_pool_allocator
+
+test-q24_gradient_accumulation: q24_gradient_accumulation
+	./q24_gradient_accumulation
+
+# Run all Python tests
+test-py:
+	@echo "========================================="
+	@echo "Running all Python tests..."
+	@echo "========================================="
+	@for f in $(PY_TARGETS); do \
+		echo ""; \
+		echo "----- Running $$f -----"; \
+		python3 $$f; \
+	done
+
 # Clean build artifacts
 clean:
 	rm -f $(TARGETS)
@@ -155,8 +211,9 @@ clean:
 # Help target
 help:
 	@echo "Available targets:"
-	@echo "  all                       - Build all 18 questions"
-	@echo "  test                      - Build and run all 18 questions"
+	@echo "  all                       - Build all 24 questions"
+	@echo "  test                      - Build and run all 24 C++ questions"
+	@echo "  test-py                   - Run all 24 Python questions"
 	@echo "  clean                     - Remove all executables and dSYM dirs"
 	@echo "  help                      - Print this help message"
 	@echo ""

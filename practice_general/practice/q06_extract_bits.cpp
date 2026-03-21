@@ -109,6 +109,7 @@ int count_bits_in_field(uint32_t value, int start, int end) {
  * Useful helper function for the above operations.
  *
  * Example: create_mask(4, 7) -> 0x000000F0
+ * 0000 0000 0000 0000 0000 0000 1111 0000
  */
 uint32_t create_mask(int start, int end) {
     // TODO: Implement mask creation
