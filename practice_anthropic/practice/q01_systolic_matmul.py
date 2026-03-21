@@ -98,16 +98,6 @@ class SystolicArray:
         for k in range(self.K):
             for n in range(self.N):
                 self.grid[k][n].weight = B[k][n]
-                # Also initialize all accumulators and signals to 0
-                # should be 0 from constructor.
-                # self.grid[k][n].acc = 0.0
-                # self.grid[k][n].in_left = 0.0
-                # self.grid[k][n].in_top = 0.0
-                # self.grid[k][n].out_right = 0.0
-                # self.grid[k][n].out_bottom = 0.0
-                # self.grid[k][n].has_input = False
-                # self.grid[k][n].has_top = False
-
 
 
     def step(self, cycle_inputs, input_valid):
