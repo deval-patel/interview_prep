@@ -34,7 +34,7 @@ def compute_output_dim(input_dim, kernel_dim, stride, padding):
     return 0
 
 
-def naive_conv2d(inp, kernel, H, W, KH, KW, stride, padding):
+def naive_conv2d(input_, kernel, H, W, KH, KW, stride, padding):
     """
     Direct nested-loop 2D convolution.
     For each output position (oh, ow):
@@ -48,7 +48,7 @@ def naive_conv2d(inp, kernel, H, W, KH, KW, stride, padding):
     return output
 
 
-def im2col(inp, H, W, KH, KW, stride, padding, OH, OW):
+def im2col(input_, H, W, KH, KW, stride, padding, OH, OW):
     """
     Transform input into column matrix for GEMM-based convolution.
     col_matrix shape: [OH*OW][KH*KW]
@@ -58,7 +58,7 @@ def im2col(inp, H, W, KH, KW, stride, padding, OH, OW):
     return col_matrix
 
 
-def im2col_conv2d(inp, kernel, H, W, KH, KW, stride, padding):
+def im2col_conv2d(input_, kernel, H, W, KH, KW, stride, padding):
     """
     Convolution using im2col + matrix multiplication.
     1. Create col_matrix using im2col

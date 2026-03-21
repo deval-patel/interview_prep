@@ -1,3 +1,66 @@
+# TPU Kernel Engineer — Interview Prep
+
+## Project State (as of 2026-03-21)
+
+### Directory layout
+```
+practice_anthropic/
+  practice/        # 24 stub files (q01–q24) — fill in the TODOs to practice
+  solutions/
+    solutions.py   # Complete reference implementations for all 24 questions
+  run_tests.py     # Test runner (see below)
+  CLAUDE.md        # This file
+```
+
+### How to run tests
+
+`run_tests.py` combines the solution implementations with each practice file's
+test framework and runs them in a subprocess. It takes an inclusive question range:
+
+```bash
+# Run all 24 questions
+python run_tests.py 1 24
+
+# Run a single question
+python run_tests.py 13 13
+
+# Run a batch
+python run_tests.py 7 12
+```
+
+To verify a practice attempt: copy your implementations into the corresponding
+practice file, then run `run_tests.py`. The runner pulls the test harness from
+the practice file and the reference implementation from solutions.py — so your
+code is what gets tested.
+
+### Solutions status
+All 24 questions pass. The following bugs were found and fixed in `solutions.py`
+during the 2026-03-21 session (do NOT revert these):
+
+| Fix | Detail |
+|-----|--------|
+| `import random` added | Tests for Q04, Q07, Q14, Q17 use `random` |
+| `stable_softmax(input_, N)` → `stable_softmax(input_)` | N param removed; use `len()` |
+| `online_softmax(input_, N)` → `online_softmax(input_)` | same |
+| `tiled_softmax(input_, N, tile_size)` → `tiled_softmax(input_, tile_size)` | same |
+| Q01 `naive_matmul` — added `stats=None` | Q04 test passes a `MatmulStats` object |
+| Q18 `VLIWScheduler.print_schedule` added | Method was missing from solution |
+| Q24 `to_bf16` — overflow guard added | Values > fp32 max crashed `struct.pack` |
+| Q24 `compute_mse_gradient_bf16` — wrap return in `to_bf16()` | So loss-scale overflow is detectable |
+
+### Practice file adjustments (matching solutions)
+These practice stubs were updated to match the corrected solution signatures:
+
+| File | Change |
+|------|--------|
+| `q01_systolic_matmul.py` | `naive_matmul` now has `stats=None` param |
+| `q10_roofline_analysis.py` | `ai_vector_add(n)` / `ai_reduction(n)` → uppercase `N` |
+| `q13_softmax_kernel.py` | `input_arr` → `input_` in all four softmax stubs |
+| `q17_conv2d_im2col.py` | `inp` → `input_` in `naive_conv2d`, `im2col`, `im2col_conv2d` |
+| `q24_gradient_accumulation.py` | `to_bf16` docstring updated with overflow edge-case hint |
+
+---
+
 I am preparing for the following role: https://job-boards.greenhouse.io/anthropic/jobs/4720576008
 
 I want to create cpp questions and solutions to practice for this upcoming onsite interview.

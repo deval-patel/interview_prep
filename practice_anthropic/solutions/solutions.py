@@ -35,6 +35,7 @@ Topics covered:
 import struct
 import math
 import heapq
+import random
 from collections import OrderedDict, deque
 
 
@@ -54,12 +55,18 @@ class PE:
         self.has_top = False
 
 
-def naive_matmul(A, B, M, K, N):
+def naive_matmul(A, B, M, K, N, stats=None):
     C = [[0.0] * N for _ in range(M)]
     for i in range(M):
         for j in range(N):
             for k in range(K):
+                if stats:
+                    stats.hbm_loads += 2
                 C[i][j] += A[i][k] * B[k][j]
+                if stats:
+                    stats.flops += 2
+            if stats:
+                stats.hbm_stores += 1
     return C
 
 
@@ -907,7 +914,8 @@ def naive_softmax(input_, N):
     return output
 
 
-def stable_softmax(input_, N):
+def stable_softmax(input_):
+    N = len(input_)
     max_val = max(input_)
     output = [0.0] * N
     s = 0.0
@@ -919,7 +927,8 @@ def stable_softmax(input_, N):
     return output
 
 
-def online_softmax(input_, N):
+def online_softmax(input_):
+    N = len(input_)
     max_val = float('-inf')
     sum_val = 0.0
 
@@ -936,7 +945,8 @@ def online_softmax(input_, N):
     return output
 
 
-def tiled_softmax(input_, N, tile_size):
+def tiled_softmax(input_, tile_size):
+    N = len(input_)
     num_tiles = (N + tile_size - 1) // tile_size
     tile_max = [0.0] * num_tiles
     tile_sum = [0.0] * num_tiles
@@ -1441,6 +1451,21 @@ class VLIWScheduler:
                     count += 1
         return count
 
+    def print_schedule(self, words):
+        unit_names = ["ALU", "MUL", "MEM", "BRANCH"]
+        print("  VLIW Schedule:")
+        header = f"  {'Word':>4} | " + " | ".join(f"{n:>8}" for n in unit_names)
+        print(header)
+        print("  " + "-" * (len(header) - 2))
+        for idx, w in enumerate(words):
+            slots = []
+            for u in range(NUM_UNITS):
+                if w.ops[u] >= 0:
+                    slots.append(f"{self.operations[w.ops[u]].name:>8}")
+                else:
+                    slots.append(f"{'NOP':>8}")
+            print(f"  {idx:>4} | " + " | ".join(slots))
+
 
 # ============================================================================
 # Q19 -- MapReduce Framework
@@ -1839,6 +1864,13 @@ class MemoryPool:
 # ============================================================================
 
 def to_bf16(x):
+    if math.isnan(x):
+        return float('nan')
+    _FP32_MAX = 3.4028235e+38
+    if x > _FP32_MAX:
+        return float('inf')
+    if x < -_FP32_MAX:
+        return float('-inf')
     bits = struct.unpack('>I', struct.pack('>f', x))[0]
     bits = bits & 0xFFFF0000
     return struct.unpack('>f', struct.pack('>I', bits))[0]
@@ -1860,7 +1892,7 @@ def compute_mse_gradient_bf16(w, x, y, loss_scale):
         diff = to_bf16(pred - y[i])
         grad += diff * x[i]
     grad = (2.0 / N) * grad
-    return grad * loss_scale
+    return to_bf16(grad * loss_scale)
 
 
 def mixed_precision_step(w_fp32, grad_scaled, loss_scale, lr):

@@ -27,25 +27,25 @@ import math
 
 # ============ YOUR IMPLEMENTATION ============
 
-def naive_softmax(input_arr):
+def naive_softmax(input_):
     """
     naive_softmax: Direct computation, no numerical stability.
     softmax(x)_i = exp(x_i) / sum(exp(x_j))
     WARNING: Will overflow for large input values!
 
     Args:
-        input_arr: list of floats
+        input_: list of floats
 
     Returns:
         list of floats (softmax output)
     """
     # TODO: Implement direct softmax
-    # 1. Compute s = sum(exp(input_arr[i]))
-    # 2. output[i] = exp(input_arr[i]) / s
-    return [0.0] * len(input_arr)
+    # 1. Compute s = sum(exp(input_[i]))
+    # 2. output[i] = exp(input_[i]) / s
+    return [0.0] * len(input_)
 
 
-def stable_softmax(input_arr):
+def stable_softmax(input_):
     """
     stable_softmax: Numerically stable version.
     softmax(x)_i = exp(x_i - max(x)) / sum(exp(x_j - max(x)))
@@ -55,7 +55,7 @@ def stable_softmax(input_arr):
       exp(x_i - c) / sum(exp(x_j - c)) = exp(x_i)/sum(exp(x_j))
 
     Args:
-        input_arr: list of floats
+        input_: list of floats
 
     Returns:
         list of floats (softmax output)
@@ -64,10 +64,10 @@ def stable_softmax(input_arr):
     # Pass 1: Find max
     # Pass 2: Compute sum of exp(x_i - max)
     # Pass 3: Normalize
-    return [0.0] * len(input_arr)
+    return [0.0] * len(input_)
 
 
-def online_softmax(input_arr):
+def online_softmax(input_):
     """
     online_softmax: Single-pass algorithm.
 
@@ -82,21 +82,21 @@ def online_softmax(input_arr):
           max_val = x_i
         else:
           sum_val += exp(x_i - max_val)
-      Then: output[i] = exp(input_arr[i] - max_val) / sum_val
+      Then: output[i] = exp(input_[i] - max_val) / sum_val
 
     This computes max and denominator in one pass (useful when data is streamed).
 
     Args:
-        input_arr: list of floats
+        input_: list of floats
 
     Returns:
         list of floats (softmax output)
     """
     # TODO: Implement online (single-pass) softmax
-    return [0.0] * len(input_arr)
+    return [0.0] * len(input_)
 
 
-def tiled_softmax(input_arr, tile_size):
+def tiled_softmax(input_, tile_size):
     """
     tiled_softmax: Process in tiles, then combine.
 
@@ -104,12 +104,12 @@ def tiled_softmax(input_arr, tile_size):
     Then combine across tiles:
       global_max = max of all tile maxes
       global_sum = sum of (tile_sum * exp(tile_max - global_max)) for all tiles
-      output[i] = exp(input_arr[i] - global_max) / global_sum
+      output[i] = exp(input_[i] - global_max) / global_sum
 
     This is how softmax is implemented on hardware with limited SRAM.
 
     Args:
-        input_arr: list of floats
+        input_: list of floats
         tile_size: int, number of elements per tile
 
     Returns:
@@ -120,7 +120,7 @@ def tiled_softmax(input_arr, tile_size):
     # 2. Compute global max across all tiles
     # 3. Compute global sum by adjusting each tile's local sum
     # 4. Compute final outputs
-    return [0.0] * len(input_arr)
+    return [0.0] * len(input_)
 
 
 # ============ TEST FRAMEWORK ============

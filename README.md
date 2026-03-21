@@ -1,200 +1,97 @@
-# Google Embedded SWE L4 Interview Preparation
+# Interview Prep
 
-Practice questions and test suites for preparing for the Google Embedded Software Engineer L4 interview.
+Practice questions and solutions for two upcoming onsite interviews.
 
-## Quick Start
+---
 
+## Sections
+
+### 1. `practice_anthropic/` — Anthropic TPU Kernel Engineer
+
+Python-based questions covering TPU/accelerator architecture, kernel optimization, and ML systems.
+
+**Run tests:**
 ```bash
-cd practice
+cd practice_anthropic
 
-# Build all questions
-make all
+# Run all 24 questions
+python run_tests.py 1 24
 
-# Run all tests (most will fail initially - that's expected!)
-make test
+# Run a single question
+python run_tests.py 13 13
 
-# Build and test a specific question
-make q04
-./q04_swap_no_temp
-           
-  Practice questions (from practice/):                                                                                                                            
-  make all          # build all 23 questions                                                                                                                      
-  make test         # build and run all tests                                                                                                                     
-  make q01          # build just question 1                                                                                                                       
-  make test-q01     # build and run just question 1         
-  make clean        # remove binaries
-  make help         # show all targets
-
-  Solutions file (from solutions/) — no Makefile yet, compile manually:
-  cd solutions
-  g++ -std=c++17 -Wall -Wextra -o solutions solutions.cpp
-  ./solutions
-
-  I can add a Makefile to solutions/ if you'd like, or add a top-level Makefile that builds both. Want me to do that?
-
+# Run a range
+python run_tests.py 7 12
 ```
 
-## Contents
+**Questions:**
+| # | File | Topic |
+|---|------|-------|
+| 1 | `q01_systolic_matmul.py` | Systolic array matrix multiply |
+| 2 | `q02_memory_hierarchy_sim.py` | HBM/SRAM memory hierarchy simulation |
+| 3 | `q03_simd_vectorize.py` | SIMD vectorization |
+| 4 | `q04_tiled_matmul.py` | Tiled matrix multiply (SRAM tiling) |
+| 5 | `q05_operator_fusion.py` | Operator fusion |
+| 6 | `q06_bfloat16_arithmetic.py` | bfloat16 arithmetic |
+| 7 | `q07_fp8_quantization.py` | FP8 quantization |
+| 8 | `q08_allreduce.py` | All-Reduce collective |
+| 9 | `q09_reduce_scatter.py` | Reduce-Scatter collective |
+| 10 | `q10_roofline_analysis.py` | Roofline model / arithmetic intensity |
+| 11 | `q11_data_packing.py` | Bit-level data packing |
+| 12 | `q12_dma_double_buffer.py` | DMA double buffering |
+| 13 | `q13_softmax_kernel.py` | Softmax kernel (stable, online, tiled) |
+| 14 | `q14_attention_mechanism.py` | Attention mechanism |
+| 15 | `q15_kv_cache.py` | KV cache for LLM inference |
+| 16 | `q16_xla_tile_scheduler.py` | XLA tile scheduler |
+| 17 | `q17_conv2d_im2col.py` | Conv2D via im2col |
+| 18 | `q18_vliw_instruction_pack.py` | VLIW instruction packing |
+| 19 | `q19_mapreduce.py` | MapReduce |
+| 20 | `q20_thread_pool_work_stealing.py` | Thread pool / work stealing |
+| 21 | `q21_async_network_router.py` | Async network router |
+| 22 | `q22_pipeline_parallelism.py` | Pipeline parallelism |
+| 23 | `q23_memory_pool_allocator.py` | Memory pool allocator |
+| 24 | `q24_gradient_accumulation.py` | Gradient accumulation (bf16) |
 
-```
-interview_prep/
-├── google_swe_1.cpp          # Your original interview question
-├── practice/                 # Practice questions with test suites
-│   ├── q01_unique_values.cpp
-│   ├── q02_missing_number.cpp
-│   ├── ...
-│   ├── q23_hard_fault.cpp
-│   └── Makefile
-├── solutions/
-│   └── solutions.cpp         # Reference implementations
-└── README.md
-```
+---
 
-## Questions by Category
+### 2. `practice_general/` — Google Embedded SWE L4
 
-### Category A: Bitmap & Memory-Efficient Deduplication
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 1 | `q01_unique_values.cpp` | Unique values with 512B RAM limit | Hard |
-| 2 | `q02_missing_number.cpp` | Find missing number using XOR | Medium |
-| 3 | `q03_count_distinct.cpp` | Approximate counting (HyperLogLog) | Hard |
+C++ questions covering embedded systems, bit manipulation, memory management, and low-level debugging.
 
-### Category B: Bit Manipulation
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 4 | `q04_swap_no_temp.cpp` | XOR swap with edge cases | Medium |
-| 5 | `q05_reverse_bits.cpp` | Bit reversal (3 approaches) | Medium |
-| 6 | `q06_extract_bits.cpp` | Bit field operations | Medium |
-| 7 | `q07_atomic_bit_ops.cpp` | Atomic register operations | Medium |
-| 8 | `q08_single_non_duplicate.cpp` | Single unique (XOR) | Easy |
-| 9 | `q09_two_non_duplicates.cpp` | Two uniques (partition XOR) | Hard |
-
-### Category C: Memory-Constrained Algorithms
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 10 | `q10_external_sort.cpp` | External merge sort | Hard |
-| 11 | `q11_ring_buffer.cpp` | Lock-free SPSC ring buffer | Medium |
-| 12 | `q12_memory_pool.cpp` | Fixed-size block allocator | Medium |
-| 13 | `q13_lru_cache.cpp` | O(1) LRU cache | Medium |
-
-### Category D: Hardware & Low-Level
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 14 | `q14_button_debounce.cpp` | GPIO debounce algorithms | Medium |
-| 15 | `q15_endianness.cpp` | Byte order conversion | Easy |
-| 16 | `q16_volatile_demo.cpp` | Understanding volatile | Medium |
-| 17 | `q17_struct_packing.cpp` | Struct alignment & padding | Medium |
-
-### Category E: System Design (Embedded Focus)
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 18 | `q18_data_logger.cpp` | Flash data logger with wear leveling | Hard |
-| 19 | `q19_ota_update.cpp` | OTA firmware update system | Hard |
-| 20 | `q20_task_scheduler.cpp` | Priority-based task scheduler | Hard |
-
-### Category F: Debugging & Analysis
-| # | File | Topic | Difficulty |
-|---|------|-------|------------|
-| 21 | `q21_stack_overflow.cpp` | Stack overflow detection | Medium |
-| 22 | `q22_memory_leak.cpp` | Memory leak detection | Medium |
-| 23 | `q23_hard_fault.cpp` | ARM Cortex-M fault analysis | Medium |
-
-## How to Use
-
-### 1. Attempt the Problem
-Each `.cpp` file contains:
-- Problem description and constraints
-- Function stubs to implement
-- Test cases that will run against your implementation
-
-```cpp
-// Example from q04_swap_no_temp.cpp
-
-// TODO: Implement this function
-void swap_xor(int* a, int* b) {
-    // Your implementation here
-}
-```
-
-### 2. Run Tests
+**Build and run:**
 ```bash
-make q04            # Build
-./q04_swap_no_temp  # Run tests
+cd practice_general/practice
+
+make all          # build all 23 questions
+make test         # build and run all tests
+make q04          # build a single question
+make test-q04     # build and run a single question
+make clean        # remove binaries
+make help         # show all targets
 ```
 
-### 3. Check Solutions
-After attempting, review `solutions/solutions.cpp` for reference implementations.
+**Questions:**
 
-## Recommended Study Order
+| # | File | Topic | Category |
+|---|------|-------|----------|
+| 1 | `q01_unique_values.cpp` | Unique values with 512B RAM limit | Bitmap & Memory-Efficient Dedup |
+| 2 | `q02_missing_number.cpp` | Find missing number using XOR | Bitmap & Memory-Efficient Dedup |
+| 3 | `q03_count_distinct.cpp` | Approximate counting (HyperLogLog) | Bitmap & Memory-Efficient Dedup |
+| 4 | `q04_swap_no_temp.cpp` | XOR swap with edge cases | Bit Manipulation |
+| 5 | `q05_reverse_bits.cpp` | Bit reversal (3 approaches) | Bit Manipulation |
+| 10 | `q10_external_sort.cpp` | External merge sort | Memory-Constrained Algorithms |
+| 11 | `q11_ring_buffer.cpp` | Lock-free SPSC ring buffer | Memory-Constrained Algorithms |
+| 12 | `q12_memory_pool.cpp` | Fixed-size block allocator | Memory-Constrained Algorithms |
+| 13 | `q13_lru_cache.cpp` | O(1) LRU cache | Memory-Constrained Algorithms |
+| 14 | `q14_button_debounce.cpp` | GPIO debounce algorithms | Hardware & Low-Level |
+| 15 | `q15_endianness.cpp` | Byte order conversion | Hardware & Low-Level |
+| 16 | `q16_volatile_demo.cpp` | Understanding volatile | Hardware & Low-Level |
+| 17 | `q17_struct_packing.cpp` | Struct alignment & padding | Hardware & Low-Level |
+| 18 | `q18_data_logger.cpp` | Flash data logger with wear leveling | System Design |
+| 19 | `q19_ota_update.cpp` | OTA firmware update system | System Design |
+| 20 | `q20_task_scheduler.cpp` | Priority-based task scheduler | System Design |
+| 21 | `q21_stack_overflow.cpp` | Stack overflow detection | Debugging & Analysis |
+| 22 | `q22_memory_leak.cpp` | Memory leak detection | Debugging & Analysis |
+| 23 | `q23_hard_fault.cpp` | ARM Cortex-M fault analysis | Debugging & Analysis |
 
-### Week 1-2: Bit Manipulation Fundamentals
-1. Q4: Swap without temp
-2. Q8: Single non-duplicate
-3. Q5: Reverse bits
-4. Q6: Extract bit field
-5. Q9: Two non-duplicates
-6. Q2: Missing number
-
-### Week 3-4: Memory & Data Structures
-1. Q11: Ring buffer
-2. Q12: Memory pool
-3. Q13: LRU cache
-4. Q1: Unique values (memory constraint)
-5. Q10: External sort
-
-### Week 5-6: Embedded Systems
-1. Q15: Endianness
-2. Q16: Volatile
-3. Q17: Struct packing
-4. Q7: Atomic bit ops
-5. Q14: Button debounce
-
-### Week 7-8: System Design & Debugging
-1. Q18: Data logger
-2. Q19: OTA update
-3. Q20: Task scheduler
-4. Q21: Stack overflow
-5. Q22: Memory leak
-6. Q23: Hard fault
-
-## Key Concepts to Master
-
-### Bit Manipulation
-- XOR properties: `a^a=0`, `a^0=a`
-- Rightmost set bit: `n & (-n)`
-- Mask creation: `((1 << width) - 1) << start`
-- Power-of-2 modulo: `x & (n-1)` instead of `x % n`
-
-### Memory Management
-- Free list for O(1) pool allocation
-- Head/tail indices for ring buffers
-- Stack canaries and watermarks
-- Alignment and padding rules
-
-### Embedded Patterns
-- `volatile` for hardware registers and ISR variables
-- Critical sections with interrupt disable/enable
-- Two-phase commit for power-safe operations
-- A/B slot pattern for OTA updates
-
-### Debugging
-- ARM fault registers: CFSR, HFSR, BFAR, MMFAR
-- Stacked PC shows faulting instruction
-- Stack painting for usage analysis
-
-## Interview Tips
-
-1. **Clarify constraints** - Memory limit? Time limit? Real-time requirements?
-2. **Think out loud** - Explain your approach before coding
-3. **Start simple** - Get a working solution, then optimize
-4. **Handle edge cases** - NULL, overflow, same-pointer, empty input
-5. **Discuss trade-offs** - Space vs. time, complexity vs. maintainability
-
-## Resources
-
-- [Google L4 Interview Guide](https://www.hellointerview.com/guides/google/l4)
-- [Bit Manipulation Questions](https://github.com/Devinterview-io/bit-manipulation-interview-questions)
-- [Embedded C Interview Prep](https://tonyfu97.github.io/Embedded-C-Interview-Prep/)
-- "Hacker's Delight" by Henry S. Warren (book)
-
-Good luck with your interview!
+Also includes `practice_general/Document1_Practice_Questions.md`, `Document2_Solutions.md`, and `Document3_Behavioral_Questions_Answers.md` for conceptual/behavioral prep.

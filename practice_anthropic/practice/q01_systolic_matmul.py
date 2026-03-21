@@ -45,13 +45,19 @@ class PE:
 
 # ============ YOUR IMPLEMENTATION ============
 
-def naive_matmul(A, B, M, K, N):
+def naive_matmul(A, B, M, K, N, stats=None):
     """
     Reference implementation for verification.
     C[M][N] = A[M][K] * B[K][N]
+
+    If stats is provided (a MatmulStats object), track:
+      - stats.hbm_loads: +2 per multiply (one A element, one B element)
+      - stats.hbm_stores: +1 per output element
+      - stats.flops: +2 per multiply-add
     """
     C = [[0.0] * N for _ in range(M)]
     # TODO: Implement standard triple-loop matrix multiply
+    # Track stats if provided
     return C
 
 
@@ -79,7 +85,6 @@ class SystolicArray:
     def load_weights(self, B):
         """Load weights from matrix B into PE grid."""
         # TODO: Load B[k][n] into grid[k][n].weight
-        # Also initialize all accumulators and signals to 0
         pass
 
     def step(self, cycle_inputs, input_valid):
@@ -102,7 +107,7 @@ class SystolicArray:
     def get_output(self, col):
         """Get output from bottom row of PE grid for a given column."""
         # TODO: Return the partial sum output from PE[K-1][col]
-        return 0.0
+        pass
 
 
 def systolic_matmul(A, B, M, K, N):

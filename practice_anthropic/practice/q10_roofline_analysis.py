@@ -75,13 +75,13 @@ class RooflineModel:
         return 0.0
 
 
-def ai_vector_add(n):
+def ai_vector_add(N):
     """
     Compute arithmetic intensity for vector add: C[i] = A[i] + B[i], length N.
     FLOPs = N, Bytes = 3*N*4 (read A, B; write C, each float is 4 bytes)
 
     Args:
-        n: vector length
+        N: vector length
 
     Returns:
         float arithmetic intensity (FLOPs/Byte)
@@ -106,13 +106,13 @@ def ai_matmul(M, K, N):
     return 0.0
 
 
-def ai_reduction(n):
+def ai_reduction(N):
     """
     Compute arithmetic intensity for reduction (sum of N elements).
     FLOPs = N-1, Bytes = N*4 + 4 (read N floats, write 1 float)
 
     Args:
-        n: number of elements
+        N: number of elements
 
     Returns:
         float arithmetic intensity (FLOPs/Byte)

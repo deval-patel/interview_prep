@@ -49,8 +49,13 @@ def to_bf16(x: float) -> float:
     bf16 keeps the upper 16 bits of fp32 (1 sign + 8 exponent + 7 mantissa).
     Implementation: pack as fp32, zero out bottom 16 bits, unpack back.
     Use struct module for bit manipulation.
+
+    Edge cases to handle before packing:
+      - nan: return float('nan')
+      - x > ~3.4e38 (fp32 max): return float('inf')   -- struct.pack('>f') overflows
+      - x < ~-3.4e38:           return float('-inf')
     """
-    # TODO: Truncate mantissa to simulate bf16 precision
+    # TODO: Handle nan and values exceeding fp32 range, then truncate mantissa
     return x
 
 
