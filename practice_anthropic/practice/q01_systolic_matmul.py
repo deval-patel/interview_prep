@@ -116,18 +116,19 @@ def systolic_matmul(A, B, M, K, N):
 
     Steps:
       1. Create a K x N systolic array and load weights from B
-      2. For each of (M + K - 1) cycles:
+      2. For each of (M + K + N - 2) cycles:
          - Determine which activation values to feed into the left column
          - Apply skewing: row m of A enters starting at cycle m
          - Step the systolic array
-         - Check if any output row has completed (after K cycles of accumulation)
+         - Check if any output has completed (column n adds n cycles of horizontal delay)
       3. Collect results into C
     """
     C = [[0.0] * N for _ in range(M)]
     # TODO: Implement systolic array matrix multiplication
     #
-    # Key insight: Total cycles needed = M + K - 1
-    # At cycle t, row m feeds A[m][t-m] into the array (if 0 <= t-m < K)
+    # Key insight: Total cycles needed = M + K + N - 2
+    # At cycle t, column n completes row m = t - (K-1) - n
+    #
     # Output for row m appears at the bottom after cycle m + K - 1
     return C
 
