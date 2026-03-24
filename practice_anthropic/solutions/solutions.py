@@ -1,7 +1,7 @@
 """
 TPU Kernel Engineer Practice — Reference Solutions (Python)
 
-Complete, working implementations for all 24 practice questions.
+Complete, working implementations for all practice questions.
 Each solution matches the exact function signatures from the corresponding
 practice file and is designed to pass all tests defined therein.
 
@@ -30,13 +30,22 @@ Topics covered:
   Q22: Pipeline Parallelism Simulator
   Q23: Memory Pool Allocator
   Q24: Gradient Accumulation & Mixed Precision Training
+  Q08-EXT: Advanced All-Reduce (Tree, Butterfly, Fault Tolerance)
+  Q19-EXT: Parallel MapReduce with Partitioning
+  Q22-EXT: Advanced Pipeline Parallelism (GPipe, 1F1B)
+  Q25: Process Scheduler Simulation
 """
 
 import struct
 import math
 import heapq
 import random
+import time
+import hashlib
 from collections import OrderedDict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
+from enum import Enum
 
 
 # ============================================================================
@@ -1945,3 +1954,746 @@ def find_loss_scale(w, x, y, initial_scale, growth_interval=10):
                 consecutive_ok = 0
 
     return scale
+
+
+# ============================================================================
+# Q08-EXT -- Advanced All-Reduce (Tree, Butterfly, Fault Tolerance)
+# ============================================================================
+
+class CommStats:
+    def __init__(self):
+        self.total_bytes = 0
+        self.num_steps = 0
+        self.bytes_per_step = []
+
+
+class BandwidthModel:
+    def __init__(self, alpha=10.0, beta=0.001):
+        self.alpha = alpha
+        self.beta = beta
+
+    def cost(self, stats):
+        return stats.num_steps * self.alpha + stats.total_bytes * self.beta
+
+    def compare(self, stats_dict):
+        return {name: self.cost(s) for name, s in stats_dict.items()}
+
+
+def ring_allreduce_ext(node_data, num_nodes):
+    """Ring all-reduce returning CommStats."""
+    stats = CommStats()
+    N = num_nodes
+    V = len(node_data[0])
+    chunk_size = V // N
+
+    # Phase 1: Reduce-Scatter
+    for step in range(N - 1):
+        # We need to snapshot data being sent before overwriting
+        send_bufs = {}
+        for i in range(N):
+            send_chunk_idx = (i - step) % N
+            start = send_chunk_idx * chunk_size
+            send_bufs[i] = node_data[i][start:start + chunk_size]
+
+        for i in range(N):
+            prev_node = (i - 1 + N) % N
+            recv_chunk_idx = (i - step - 1) % N
+            start = recv_chunk_idx * chunk_size
+            received = send_bufs[prev_node]
+            for j in range(chunk_size):
+                node_data[i][start + j] += received[j]
+
+        step_bytes = N * chunk_size * 4
+        stats.bytes_per_step.append(step_bytes)
+        stats.total_bytes += step_bytes
+        stats.num_steps += 1
+
+    # Phase 2: All-Gather
+    for step in range(N - 1):
+        send_bufs = {}
+        for i in range(N):
+            send_chunk_idx = (i - step + 1) % N
+            start = send_chunk_idx * chunk_size
+            send_bufs[i] = node_data[i][start:start + chunk_size]
+
+        for i in range(N):
+            prev_node = (i - 1 + N) % N
+            recv_chunk_idx = (i - step) % N
+            start = recv_chunk_idx * chunk_size
+            received = send_bufs[prev_node]
+            for j in range(chunk_size):
+                node_data[i][start + j] = received[j]
+
+        step_bytes = N * chunk_size * 4
+        stats.bytes_per_step.append(step_bytes)
+        stats.total_bytes += step_bytes
+        stats.num_steps += 1
+
+    return stats
+
+
+def tree_allreduce(node_data, num_nodes):
+    """Binary tree all-reduce. N must be power of 2."""
+    stats = CommStats()
+    N = num_nodes
+    V = len(node_data[0])
+    log_n = int(math.log2(N))
+
+    # Phase 1: Reduce (leaves -> root)
+    for k in range(log_n):
+        stride = 1 << (k + 1)
+        num_pairs = N // stride
+        step_bytes = num_pairs * V * 4
+        for i in range(0, N, stride):
+            sender = i + stride // 2
+            receiver = i
+            for j in range(V):
+                node_data[receiver][j] += node_data[sender][j]
+        stats.bytes_per_step.append(step_bytes)
+        stats.total_bytes += step_bytes
+        stats.num_steps += 1
+
+    # Phase 2: Broadcast (root -> leaves)
+    for k in range(log_n - 1, -1, -1):
+        stride = 1 << (k + 1)
+        num_pairs = N // stride
+        step_bytes = num_pairs * V * 4
+        for i in range(0, N, stride):
+            sender = i
+            receiver = i + stride // 2
+            node_data[receiver][:] = node_data[sender][:]
+        stats.bytes_per_step.append(step_bytes)
+        stats.total_bytes += step_bytes
+        stats.num_steps += 1
+
+    return stats
+
+
+def butterfly_allreduce(node_data, num_nodes):
+    """Butterfly (recursive doubling) all-reduce. N must be power of 2."""
+    stats = CommStats()
+    N = num_nodes
+    V = len(node_data[0])
+    log_n = int(math.log2(N))
+
+    for k in range(log_n):
+        mask = 1 << k
+        # Snapshot all vectors before this step
+        snapshots = [row[:] for row in node_data]
+        for i in range(N):
+            partner = i ^ mask
+            for j in range(V):
+                node_data[i][j] = snapshots[i][j] + snapshots[partner][j]
+        # Each node sends V floats -> N * V * 4 bytes total
+        step_bytes = N * V * 4
+        stats.bytes_per_step.append(step_bytes)
+        stats.total_bytes += step_bytes
+        stats.num_steps += 1
+
+    return stats
+
+
+class FaultTolerantAllReduce:
+    def __init__(self, num_nodes):
+        self.num_nodes = num_nodes
+        self.failed_nodes = set()
+
+    def fail_node(self, node_id):
+        self.failed_nodes.add(node_id)
+
+    def recover_node(self, node_id):
+        self.failed_nodes.discard(node_id)
+
+    def get_alive_nodes(self):
+        return sorted(i for i in range(self.num_nodes) if i not in self.failed_nodes)
+
+    def execute(self, node_data):
+        alive = self.get_alive_nodes()
+        num_alive = len(alive)
+        if num_alive < 2:
+            raise ValueError(f"Need at least 2 alive nodes, got {num_alive}")
+
+        V = len(node_data[alive[0]])
+        # Pad vectors so V is divisible by num_alive (ring allreduce requirement)
+        pad = (num_alive - V % num_alive) % num_alive
+        compact_data = [node_data[i][:] + [0.0] * pad for i in alive]
+
+        stats = ring_allreduce_ext(compact_data, num_alive)
+
+        results = [None] * self.num_nodes
+        for idx, node_id in enumerate(alive):
+            results[node_id] = compact_data[idx][:V]  # trim padding
+
+        return results, stats
+
+
+# ============================================================================
+# Q19-EXT -- Parallel MapReduce with Partitioning
+# ============================================================================
+
+class ShuffleStats:
+    def __init__(self):
+        self.total_pairs_shuffled = 0
+        self.per_reducer_pairs = {}
+        self.mapper_durations = []
+        self.stragglers_detected = 0
+        self.speculative_reruns = 0
+
+
+def hash_partition(key, num_reducers):
+    digest = hashlib.md5(str(key).encode()).hexdigest()
+    return int(digest, 16) % num_reducers
+
+
+def split_input(input_data, num_mappers):
+    n = len(input_data)
+    chunks = []
+    base = n // num_mappers if num_mappers > 0 else 0
+    remainder = n % num_mappers if num_mappers > 0 else 0
+    idx = 0
+    for i in range(num_mappers):
+        size = base + (1 if i < remainder else 0)
+        chunks.append(input_data[idx:idx + size])
+        idx += size
+    return chunks
+
+
+def run_mapper(mapper_fn, chunk, mapper_id, slow_mappers=None):
+    start = time.time()
+    results = []
+    for item in chunk:
+        results.extend(mapper_fn(item))
+        if slow_mappers and mapper_id in slow_mappers:
+            time.sleep(0.1)
+    duration = time.time() - start
+    return (mapper_id, results, duration)
+
+
+def apply_combiner(mapper_output, combiner_fn):
+    groups = OrderedDict()
+    for key, val in mapper_output:
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(val)
+    return [(key, combiner_fn(key, vals)) for key, vals in groups.items()]
+
+
+def shuffle_and_partition(all_mapper_outputs, num_reducers):
+    reducer_buckets = {r: OrderedDict() for r in range(num_reducers)}
+    stats = ShuffleStats()
+    stats.per_reducer_pairs = {r: 0 for r in range(num_reducers)}
+
+    for mapper_id, pairs in all_mapper_outputs:
+        for key, value in pairs:
+            r = hash_partition(key, num_reducers)
+            if key not in reducer_buckets[r]:
+                reducer_buckets[r][key] = []
+            reducer_buckets[r][key].append(value)
+            stats.total_pairs_shuffled += 1
+            stats.per_reducer_pairs[r] += 1
+
+    return reducer_buckets, stats
+
+
+def run_reducer(reducer_fn, reducer_id, key_values):
+    result = {}
+    for key, vals in key_values.items():
+        result[key] = reducer_fn(key, vals)
+    return (reducer_id, result)
+
+
+class ParallelMapReduce:
+    def __init__(self, num_mappers=2, num_reducers=2):
+        self.num_mappers = num_mappers
+        self.num_reducers = num_reducers
+        self.stats = ShuffleStats()
+
+    def execute(self, input_data, mapper_fn, reducer_fn,
+                combiner_fn=None, slow_mappers=None):
+        self.stats = ShuffleStats()
+
+        if not input_data:
+            return {}
+
+        # Step 1: Split input
+        chunks = split_input(input_data, self.num_mappers)
+
+        # Step 2: Run mappers in parallel
+        mapper_results = []
+        with ThreadPoolExecutor(max_workers=self.num_mappers) as executor:
+            futures = {}
+            for i in range(self.num_mappers):
+                f = executor.submit(run_mapper, mapper_fn, chunks[i], i, slow_mappers)
+                futures[f] = i
+            for f in as_completed(futures):
+                mapper_results.append(f.result())
+
+        # Step 3: Collect durations
+        durations = [r[2] for r in mapper_results]
+        self.stats.mapper_durations = durations
+
+        # Step 4: Detect stragglers (duration > 2x median)
+        if durations:
+            sorted_d = sorted(durations)
+            median = sorted_d[len(sorted_d) // 2]
+            for mid, _, dur in mapper_results:
+                if dur > 2 * median and median > 0:
+                    self.stats.stragglers_detected += 1
+
+        # Step 5: Apply combiner if provided
+        all_mapper_outputs = []
+        for mapper_id, results, _ in mapper_results:
+            if combiner_fn and results:
+                combined = apply_combiner(results, combiner_fn)
+                all_mapper_outputs.append((mapper_id, combined))
+            else:
+                all_mapper_outputs.append((mapper_id, results))
+
+        # Step 6: Shuffle and partition
+        reducer_buckets, shuffle_stats = shuffle_and_partition(
+            all_mapper_outputs, self.num_reducers)
+        self.stats.total_pairs_shuffled = shuffle_stats.total_pairs_shuffled
+        self.stats.per_reducer_pairs = shuffle_stats.per_reducer_pairs
+
+        # Step 7: Run reducers in parallel
+        merged = {}
+        with ThreadPoolExecutor(max_workers=self.num_reducers) as executor:
+            futures = []
+            for r in range(self.num_reducers):
+                f = executor.submit(run_reducer, reducer_fn, r, reducer_buckets[r])
+                futures.append(f)
+            for f in as_completed(futures):
+                reducer_id, result = f.result()
+                merged.update(result)
+
+        return merged
+
+
+def word_count_mapper_ext(text):
+    return [(word, 1) for word in text.split()]
+
+
+def word_count_reducer_ext(key, values):
+    return sum(values)
+
+
+def word_count_combiner_ext(key, values):
+    return sum(values)
+
+# Alias for compatibility with practice file test framework
+word_count_combiner = word_count_combiner_ext
+
+
+def topk_reducer(key, values):
+    return sum(values)
+
+
+def get_topk(results, k):
+    sorted_items = sorted(results.items(), key=lambda x: (-x[1], x[0]))
+    return sorted_items[:k]
+
+
+# ============================================================================
+# Q22-EXT -- Advanced Pipeline Parallelism (GPipe, 1F1B)
+# ============================================================================
+
+def compute_peak_memory(fwd_end, bwd_end, num_stages, num_microbatches):
+    """Compute per-stage peak memory via event sweep."""
+    per_stage_peaks = []
+    global_peak = 0
+
+    for s in range(num_stages):
+        events = []
+        for m in range(num_microbatches):
+            events.append((fwd_end[s][m], 1))   # activation allocated
+            events.append((bwd_end[s][m], -1))   # activation freed
+        # Sort by time; ties: frees (-1) before allocates (+1) at same time
+        events.sort(key=lambda e: (e[0], e[1]))
+        current = 0
+        peak = 0
+        for _, delta in events:
+            current += delta
+            if current > peak:
+                peak = current
+        per_stage_peaks.append(peak)
+        if peak > global_peak:
+            global_peak = peak
+
+    return global_peak, per_stage_peaks
+
+
+class GPipeScheduler:
+    def __init__(self, num_stages, num_microbatches, fwd_latency, bwd_latency):
+        self.S = num_stages
+        self.M = num_microbatches
+        self.fwd_latency = fwd_latency
+        self.bwd_latency = bwd_latency
+        self.fwd_start = [[0] * num_microbatches for _ in range(num_stages)]
+        self.fwd_end = [[0] * num_microbatches for _ in range(num_stages)]
+        self.bwd_start = [[0] * num_microbatches for _ in range(num_stages)]
+        self.bwd_end = [[0] * num_microbatches for _ in range(num_stages)]
+
+    def simulate(self):
+        S, M = self.S, self.M
+        # Forward pass
+        for s in range(S):
+            for m in range(M):
+                if s == 0 and m == 0:
+                    self.fwd_start[s][m] = 0
+                elif s == 0:
+                    self.fwd_start[s][m] = self.fwd_end[s][m - 1]
+                elif m == 0:
+                    self.fwd_start[s][m] = self.fwd_end[s - 1][m]
+                else:
+                    self.fwd_start[s][m] = max(self.fwd_end[s][m - 1],
+                                                self.fwd_end[s - 1][m])
+                self.fwd_end[s][m] = self.fwd_start[s][m] + self.fwd_latency[s]
+
+        # Backward pass: starts after all forwards complete
+        # Process microbatches 0..M-1 at stages S-1..0
+        all_fwd_done = max(self.fwd_end[s][m] for s in range(S) for m in range(M))
+        for s in range(S - 1, -1, -1):
+            for m in range(M):
+                if s == S - 1 and m == 0:
+                    self.bwd_start[s][m] = all_fwd_done
+                elif m == 0:
+                    self.bwd_start[s][m] = self.bwd_end[s + 1][m]
+                elif s == S - 1:
+                    self.bwd_start[s][m] = self.bwd_end[s][m - 1]
+                else:
+                    self.bwd_start[s][m] = max(self.bwd_end[s][m - 1],
+                                                self.bwd_end[s + 1][m])
+                self.bwd_end[s][m] = self.bwd_start[s][m] + self.bwd_latency[s]
+
+    def get_stats(self):
+        S, M = self.S, self.M
+        total_time = max(self.bwd_end[s][m] for s in range(S) for m in range(M))
+
+        stage_busy = []
+        stage_idle = []
+        for s in range(S):
+            busy = self.fwd_latency[s] * M + self.bwd_latency[s] * M
+            stage_busy.append(busy)
+            stage_idle.append(total_time - busy)
+
+        total_busy = sum(stage_busy)
+        bubble_ratio = 1.0 - total_busy / (S * total_time) if total_time > 0 else 0.0
+
+        peak, per_stage = compute_peak_memory(self.fwd_end, self.bwd_end, S, M)
+
+        return {
+            "total_time": total_time,
+            "bubble_ratio": bubble_ratio,
+            "peak_memory": peak,
+            "per_stage_peak_memory": per_stage,
+        }
+
+
+class OneF1BScheduler:
+    def __init__(self, num_stages, num_microbatches, fwd_latency, bwd_latency):
+        self.S = num_stages
+        self.M = num_microbatches
+        self.fwd_latency = fwd_latency
+        self.bwd_latency = bwd_latency
+        self.fwd_start = [[0] * num_microbatches for _ in range(num_stages)]
+        self.fwd_end = [[0] * num_microbatches for _ in range(num_stages)]
+        self.bwd_start = [[0] * num_microbatches for _ in range(num_stages)]
+        self.bwd_end = [[0] * num_microbatches for _ in range(num_stages)]
+
+    def simulate(self):
+        S, M = self.S, self.M
+
+        # 1F1B schedules both forwards and backwards interleaved per stage.
+        # For stage s, the warmup count = min(S - 1 - s, M).
+        # Operation order at stage s:
+        #   [F]*warmup, then [B,F] pairs (steady state), then [B]* cooldown
+        #
+        # We process stages 0..S-1 in order. For each stage, we build its
+        # operation sequence and schedule each op respecting dependencies.
+        #
+        # Forward dependencies:
+        #   fwd_start[s][m] >= fwd_end[s-1][m]  (upstream stage)
+        #   fwd_start[s][m] >= fwd_end[s][m-1]  (prev mb at same stage)
+        #   fwd_start[s][m] >= stage_free        (stage busy constraint)
+        #
+        # Backward dependencies:
+        #   bwd_start[s][m] >= fwd_end[s][m]    (need activations)
+        #   bwd_start[s][m] >= bwd_end[s+1][m]  (downstream gradients)
+        #   bwd_start[s][m] >= bwd_end[s][m-1]  (prev bwd at same stage)
+        #   bwd_start[s][m] >= stage_free        (stage busy constraint)
+
+        for s in range(S):
+            warmup = min(S - 1 - s, M)
+            # After warmup forwards, we alternate B then F in steady state.
+            # Total: M forwards, M backwards.
+            # Warmup: warmup forwards
+            # Steady: min(M, M - warmup) pairs of (B, F)
+            # Cooldown: remaining backwards
+
+            ops = []
+            fwd_idx = 0
+            bwd_idx = 0
+
+            # Warmup: only forwards
+            for _ in range(warmup):
+                ops.append(('F', fwd_idx))
+                fwd_idx += 1
+
+            # Steady state: alternate B, F
+            while fwd_idx < M and bwd_idx < M:
+                ops.append(('B', bwd_idx))
+                bwd_idx += 1
+                ops.append(('F', fwd_idx))
+                fwd_idx += 1
+
+            # Handle remaining: if more backwards than forwards
+            while bwd_idx < M:
+                ops.append(('B', bwd_idx))
+                bwd_idx += 1
+
+            # Handle remaining: if more forwards than backwards (shouldn't happen
+            # with warmup <= M, but just in case)
+            while fwd_idx < M:
+                ops.append(('F', fwd_idx))
+                fwd_idx += 1
+
+            # Schedule operations for this stage
+            stage_free = 0
+
+            for op_type, m in ops:
+                if op_type == 'F':
+                    earliest = stage_free
+                    if m > 0:
+                        earliest = max(earliest, self.fwd_end[s][m - 1])
+                    if s > 0:
+                        earliest = max(earliest, self.fwd_end[s - 1][m])
+                    self.fwd_start[s][m] = earliest
+                    self.fwd_end[s][m] = earliest + self.fwd_latency[s]
+                    stage_free = self.fwd_end[s][m]
+                else:  # 'B'
+                    earliest = stage_free
+                    earliest = max(earliest, self.fwd_end[s][m])
+                    if s < S - 1:
+                        earliest = max(earliest, self.bwd_end[s + 1][m])
+                    if m > 0:
+                        earliest = max(earliest, self.bwd_end[s][m - 1])
+                    self.bwd_start[s][m] = earliest
+                    self.bwd_end[s][m] = earliest + self.bwd_latency[s]
+                    stage_free = self.bwd_end[s][m]
+
+    def get_stats(self):
+        S, M = self.S, self.M
+        total_time = max(self.bwd_end[s][m] for s in range(S) for m in range(M))
+
+        stage_busy = []
+        for s in range(S):
+            busy = self.fwd_latency[s] * M + self.bwd_latency[s] * M
+            stage_busy.append(busy)
+
+        total_busy = sum(stage_busy)
+        bubble_ratio = 1.0 - total_busy / (S * total_time) if total_time > 0 else 0.0
+
+        peak, per_stage = compute_peak_memory(self.fwd_end, self.bwd_end, S, M)
+
+        return {
+            "total_time": total_time,
+            "bubble_ratio": bubble_ratio,
+            "peak_memory": peak,
+            "per_stage_peak_memory": per_stage,
+        }
+
+
+# ============================================================================
+# Q25 -- Process Scheduler Simulation
+# ============================================================================
+
+class ProcessState(Enum):
+    NEW = "NEW"
+    READY = "READY"
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    CANCELLED = "CANCELLED"
+
+
+@dataclass
+class Process:
+    pid: int
+    arrival_time: int
+    duration: int
+    priority: int
+    remaining: int = 0
+    state: ProcessState = ProcessState.NEW
+    core_id: int = -1
+    completion_time: int = -1
+    total_waited: int = 0
+
+    def __post_init__(self):
+        self.remaining = self.duration
+
+
+class ProcessScheduler:
+    def __init__(self, num_cores, quantum):
+        self.num_cores = num_cores
+        self.quantum = quantum
+        self.processes = {}
+        self.core_assignment = {c: None for c in range(num_cores)}
+        self.current_time = 0
+        self.total_preemptions = 0
+        self.total_context_switches = 0
+        self.core_busy_cycles = {c: 0 for c in range(num_cores)}
+
+    def add_process(self, pid, arrival_time, duration, priority):
+        self.processes[pid] = Process(
+            pid=pid, arrival_time=arrival_time,
+            duration=duration, priority=priority)
+
+    def priority_boost(self, pid, new_priority):
+        p = self.processes[pid]
+        if p.state in (ProcessState.DONE, ProcessState.CANCELLED, ProcessState.RUNNING):
+            raise ValueError(f"Cannot boost process {pid} in state {p.state}")
+        p.priority = new_priority
+
+    def cancel(self, pid):
+        p = self.processes[pid]
+        if p.state in (ProcessState.DONE, ProcessState.CANCELLED):
+            raise ValueError(f"Cannot cancel process {pid} in state {p.state}")
+        if p.state == ProcessState.RUNNING:
+            for c, assigned_pid in self.core_assignment.items():
+                if assigned_pid == pid:
+                    self.core_assignment[c] = None
+                    break
+        p.state = ProcessState.CANCELLED
+        p.core_id = -1
+
+    def _get_ready_processes(self):
+        ready = []
+        for p in self.processes.values():
+            if p.state == ProcessState.CANCELLED or p.state == ProcessState.DONE:
+                continue
+            if p.state == ProcessState.NEW and p.arrival_time <= self.current_time:
+                p.state = ProcessState.READY
+            if p.state in (ProcessState.READY, ProcessState.RUNNING):
+                ready.append(p)
+        ready.sort(key=lambda p: (p.priority, p.arrival_time, p.pid))
+        return ready
+
+    def _schedule(self):
+        ready = self._get_ready_processes()
+        to_assign = ready[:self.num_cores]
+        to_wait = ready[self.num_cores:]
+
+        assigned_pids = {p.pid for p in to_assign}
+
+        # Build new core assignment with affinity
+        new_assignment = {c: None for c in range(self.num_cores)}
+
+        # First pass: keep processes on their current core if they're still in top-C
+        for c in range(self.num_cores):
+            old_pid = self.core_assignment[c]
+            if old_pid is not None and old_pid in assigned_pids:
+                new_assignment[c] = old_pid
+                assigned_pids.discard(old_pid)
+
+        # Second pass: assign remaining processes to free cores
+        free_cores = [c for c in range(self.num_cores) if new_assignment[c] is None]
+        remaining = [p for p in to_assign if p.pid in assigned_pids]
+        for p, c in zip(remaining, free_cores):
+            new_assignment[c] = p.pid
+
+        # Track preemptions and context switches
+        for c in range(self.num_cores):
+            old_pid = self.core_assignment[c]
+            new_pid = new_assignment[c]
+
+            if old_pid != new_pid:
+                # Context switch
+                if old_pid is not None or new_pid is not None:
+                    self.total_context_switches += 1
+
+                # Preemption: old process was running but got displaced
+                if old_pid is not None and old_pid in self.processes:
+                    old_p = self.processes[old_pid]
+                    if old_p.state == ProcessState.RUNNING:
+                        old_p.state = ProcessState.READY
+                        old_p.core_id = -1
+                        self.total_preemptions += 1
+
+        # Apply new assignment
+        self.core_assignment = new_assignment
+        for c in range(self.num_cores):
+            pid = new_assignment[c]
+            if pid is not None:
+                p = self.processes[pid]
+                p.state = ProcessState.RUNNING
+                p.core_id = c
+
+        # Processes not assigned go to READY
+        for p in to_wait:
+            if p.state == ProcessState.RUNNING:
+                # This shouldn't happen since we handle above, but just in case
+                p.state = ProcessState.READY
+                p.core_id = -1
+
+    def _run_quantum(self):
+        q = self.quantum
+
+        # Run each core
+        for c in range(self.num_cores):
+            pid = self.core_assignment[c]
+            if pid is None:
+                continue
+            p = self.processes[pid]
+            if p.state != ProcessState.RUNNING:
+                continue
+            work = min(q, p.remaining)
+            p.remaining -= work
+            self.core_busy_cycles[c] += work
+            if p.remaining == 0:
+                p.state = ProcessState.DONE
+                p.completion_time = self.current_time + work
+                p.core_id = -1
+                self.core_assignment[c] = None
+
+        self.current_time += q
+
+    def _has_active(self):
+        return any(
+            p.state in (ProcessState.NEW, ProcessState.READY, ProcessState.RUNNING)
+            for p in self.processes.values()
+        )
+
+    def run(self):
+        # Find the max arrival time to know when to stop checking for new work
+        while self._has_active():
+            self._schedule()
+            self._run_quantum()
+
+        total_time = self.current_time
+
+        completion_times = {}
+        turnarounds = []
+        waitings = []
+        for p in self.processes.values():
+            if p.state == ProcessState.DONE:
+                completion_times[p.pid] = p.completion_time
+                ta = p.completion_time - p.arrival_time
+                turnarounds.append(ta)
+                waitings.append(ta - p.duration)
+
+        avg_turnaround = sum(turnarounds) / len(turnarounds) if turnarounds else 0.0
+        avg_waiting = sum(waitings) / len(waitings) if waitings else 0.0
+
+        core_util = []
+        for c in range(self.num_cores):
+            util = self.core_busy_cycles[c] / total_time if total_time > 0 else 0.0
+            core_util.append(util)
+
+        return {
+            "completion_times": completion_times,
+            "avg_turnaround": avg_turnaround,
+            "avg_waiting": avg_waiting,
+            "core_utilization": core_util,
+            "total_preemptions": self.total_preemptions,
+            "total_context_switches": self.total_context_switches,
+            "total_time": total_time,
+        }

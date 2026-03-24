@@ -46,6 +46,15 @@ def naive_matmul(A, B, M, K, N, stats):
     # Count each A[i][k] read, B[k][j] read as hbm_loads
     # Count each C[i][j] write as hbm_stores
     # Count each multiply-add as 2 flops
+    for m in range(M):
+        for n in range(N):
+            acc = 0.0
+            for k in range(K):
+                stats.hbm_loads += 2  # A[m][k] and B[k][n]
+                stats.flops += 2
+                acc += A[m][k] * B[k][n]
+            C[m][n] = acc
+            stats.hbm_stores += 1  # C[m][n]
     return C
 
 
@@ -63,7 +72,51 @@ def tiled_matmul(A, B, M, K, N, stats):
     Handle edge tiles where dimensions don't divide evenly by TILE_SIZE.
     """
     C = [[0.0] * N for _ in range(M)]
-    # TODO: Implement tiled matmul
+    stats.hbm_loads = 0
+    stats.hbm_stores = 0
+    stats.flops = 0
+
+    # Fix M for C tile
+    for m in range(0, M, TILE_SIZE):
+        m_end = min(m + TILE_SIZE, M)
+        # Fix N for C tile
+        for n in range(0, N, TILE_SIZE):
+            n_end = min(n + TILE_SIZE, N)
+            # Intialize C tile (TILE_SIZE, TILE_SIZE)
+            C_tile = [[0.0] * TILE_SIZE for _ in range(TILE_SIZE)]
+
+            # Iterate over all K tiles
+            for k in range(0, K, TILE_SIZE):
+                k_end = min(k + TILE_SIZE, K)
+
+                # Load A_tile (m_end-m x k_end-k) and B_tile (k_end-k x n_end-n)
+                A_tile = [[0.0] * (k_end - k) for _ in range(m_end - m)]
+                B_tile = [[0.0] * (n_end - n) for _ in range(k_end - k)]
+                
+                for i in range(m_end - m):
+                    for j in range(k_end - k):
+                        A_tile[i][j] = A[m + i][k + j]
+                        stats.hbm_loads += 1
+                
+                for i in range(k_end - k):
+                    for j in range(n_end - n):
+                        B_tile[i][j] = B[k + i][n + j]
+                        stats.hbm_loads += 1
+
+                # Compute C_tile with the current A and B tile (classic matmul dot product)
+                for mm in range(m_end - m):
+                    for nn in range(n_end - n):
+                        acc = 0.0
+                        for kk in range(k_end - k):
+                            acc += A_tile[mm][kk] * B_tile[kk][nn] 
+                            stats.flops += 1
+                        C_tile[mm][nn] += acc
+
+            # Store C_tile in C, since C_tile holds the complete result for that tile
+            for mm in range(m_end - m):
+                for nn in range(n_end - n):
+                    C[m + mm][n + nn] = C_tile[mm][nn]
+                    stats.hbm_stores += 1
     return C
 
 

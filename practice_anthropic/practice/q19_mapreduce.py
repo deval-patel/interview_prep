@@ -44,10 +44,13 @@ def map_phase(input_data, mapper_fn):
     mapper_fn takes a single string and returns a list of (key, value) tuples.
     Return the flattened list of all (key, value) tuples produced.
     """
+    ret = []
     # TODO: For each item in input_data:
-    #   1. Call mapper_fn(item)
-    #   2. Extend the result list with all returned tuples
-    return []
+    for item in input_data:
+        #   1. Call mapper_fn(item)
+        #   2. Extend the result list with all returned tuples
+        ret.extend(mapper_fn(item))
+    return ret
 
 
 def shuffle_phase(mapped_data):
@@ -55,9 +58,15 @@ def shuffle_phase(mapped_data):
     Group all values by key, preserving insertion order.
     Returns an OrderedDict from key -> list of values.
     """
+    ord_dict = OrderedDict()
     # TODO: For each (key, value) in mapped_data:
-    #   Group values under their key, preserving order
-    return OrderedDict()
+    for key, val in mapped_data:
+        #   Group values under their key, preserving order
+        if key not in ord_dict:
+            ord_dict[key] = []
+        ord_dict[key].append(val)
+
+    return ord_dict
 
 
 def reduce_phase(shuffled_data, reducer_fn):
@@ -66,15 +75,21 @@ def reduce_phase(shuffled_data, reducer_fn):
     reducer_fn takes (key, values) and returns a single result.
     Returns a dict from key -> reduced result.
     """
+    result = {}
+
     # TODO: For each (key, values) in shuffled_data:
-    #   result[key] = reducer_fn(key, values)
-    return {}
+    for key, vals in shuffled_data.items():
+        result[key] = reducer_fn(key, vals)
+
+    return result
 
 
 def mapreduce(input_data, mapper_fn, reducer_fn):
     """Orchestrate all three phases: map -> shuffle -> reduce."""
     # TODO: Chain map_phase -> shuffle_phase -> reduce_phase
-    return {}
+    mapped_data = map_phase(input_data, mapper_fn)
+    shuffled_data = shuffle_phase(mapped_data)
+    return reduce_phase(shuffled_data, reducer_fn)
 
 
 # --- Application-specific mappers and reducers ---
@@ -82,13 +97,13 @@ def mapreduce(input_data, mapper_fn, reducer_fn):
 def word_count_mapper(text):
     """Split text into words, emit (word, 1) for each."""
     # TODO: return [(word, 1) for word in text.split()]
-    return []
+    return [(word, 1) for word in text.split()]
 
 
 def word_count_reducer(key, values):
     """Sum up all the 1s for a given word."""
     # TODO: return sum(values)
-    return 0
+    return sum(values)
 
 
 def inverted_index_mapper(doc_input):
@@ -97,25 +112,28 @@ def inverted_index_mapper(doc_input):
     """
     # TODO: Parse "doc_id:text", split text into words
     #   For each unique word, emit (word, doc_id)
-    return []
+    # partition will result in [doc_id, ":", text]
+    doc_id, _, text = doc_input.partition(":")
+    return [(word, doc_id) for word in text.split()]
 
 
 def inverted_index_reducer(key, values):
     """Return list of doc IDs (as-is)."""
     # TODO: return values (already a list of doc_ids)
-    return []
+    return values
 
 
 def mean_mapper(entry):
     """Input is "group:value". Emit (group, float(value))."""
     # TODO: Parse "group:value" and emit [(group, float(value))]
-    return []
+    group, _, value = entry.partition(":")
+    return [(group, float(value))]
 
 
 def mean_reducer(key, values):
     """Compute arithmetic mean of all values."""
     # TODO: return sum(values) / len(values)
-    return 0.0
+    return sum(values) / len(values)
 
 
 # ============ TEST FRAMEWORK ============
